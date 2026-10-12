@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 // Login, sign-up, OTP verification and password reset on one page; the flags
 // below decide which form is shown.
@@ -29,6 +30,7 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const {
     login,
+    loginWithGoogle,
     signup,
     sendOtp,
     verifyOtp,
@@ -126,6 +128,16 @@ export default function AuthPage() {
       if (result?.success) {
         navigate("/");
       }
+    }
+  };
+
+  // Google handed us an ID token; the backend checks it and logs the user in.
+  const handleGoogleCredential = async (credential) => {
+    setError(null);
+    setMessage(null);
+    const result = await loginWithGoogle(credential);
+    if (result?.success) {
+      navigate("/");
     }
   };
 
@@ -601,6 +613,15 @@ export default function AuthPage() {
             )}
           </form>
         )}
+        {/* Google works for both sign-in and sign-up: a new Google user gets an account. */}
+        {!showForgotPasswordFlow &&
+          !showOtpInputBlock &&
+          (!isLogin || loginMethod === null) && (
+            <GoogleSignInButton
+              onCredential={handleGoogleCredential}
+              text={isLogin ? "signin_with" : "signup_with"}
+            />
+          )}
         {!showForgotPasswordFlow && (
           <p className="text-center text-sm mt-4">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}

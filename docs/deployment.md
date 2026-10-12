@@ -91,6 +91,7 @@ Fill in at least:
 | `DB_PASSWORD` | a long random password: `openssl rand -base64 24` |
 | `JWT_SECRET` | a new secret: `openssl rand -base64 64 \| tr -d '\n'` |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | the Gmail address and a **new** app password |
+| `GOOGLE_CLIENT_ID` | optional, for Sign in with Google. Add `https://` + your domain to the client's **Authorized JavaScript origins** first ([google-sign-in.md](google-sign-in.md)) |
 
 `DB_URL`, `DB_USERNAME` and `CORS_ALLOWED_ORIGINS` are set by the compose files, so you can leave them alone. Then lock the file down: `chmod 600 .env`.
 
