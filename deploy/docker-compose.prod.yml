@@ -1,0 +1,61 @@
+# Production overrides: HTTPS in front, nothing else reachable from outside,
+# and daily database backups. Use together with the main file:
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+#
+# Full steps: docs/deployment.md
+
+services:
+  backend:
+    environment:
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env}
+
+  web:
+    # Only Caddy talks to nginx now; don't publish port 8081
+    ports: !reset []
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
+  backup:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_PWD: ${DB_PASSWORD}
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # One compressed dump a day; dumps older than KEEP_DAYS are deleted.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          file=/backups/farm_fresh-$$(date +%Y%m%d-%H%M).sql.gz
+          if mysqldump -h mysql -uroot --single-transaction --routines farm_fresh | gzip > "$$file.tmp"; then
+            mv "$$file.tmp" "$$file" && echo "backup written: $$file"
+          else
+            rm -f "$$file.tmp"; echo "backup FAILED" >&2
+          fi
+          find /backups -name 'farm_fresh-*.sql.gz' -mtime +$$KEEP_DAYS -delete
+          sleep 86400
+        done
+
+volumes:
+  caddy-data:
+  caddy-config:

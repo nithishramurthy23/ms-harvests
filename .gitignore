@@ -22,3 +22,6 @@ npm-debug.log*
 *.iml
 .DS_Store
 Thumbs.db
+
+# Database backups (production)
+backups/

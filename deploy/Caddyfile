@@ -1,0 +1,16 @@
+# Public entry point in production. Caddy gets and renews a free HTTPS
+# certificate from Let's Encrypt for $DOMAIN, redirects HTTP to HTTPS,
+# and forwards everything to the nginx container.
+{$DOMAIN} {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy web:80
+}
