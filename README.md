@@ -339,6 +339,8 @@ npm test
 
 GitHub Actions runs both suites, the linter, and the Docker image builds on every push and pull request (`.github/workflows/ci.yml`).
 
+Load tests (k6) and their results, including a 500-buyer flash sale against 100 items, are in [loadtest/](loadtest/RESULTS.md).
+
 ---
 
 ## Before putting this online
