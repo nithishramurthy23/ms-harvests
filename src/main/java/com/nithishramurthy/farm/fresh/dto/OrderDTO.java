@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/** Order as returned to the client, with its lines, for order history and order details. */
 public class OrderDTO {
 
     private Long id;

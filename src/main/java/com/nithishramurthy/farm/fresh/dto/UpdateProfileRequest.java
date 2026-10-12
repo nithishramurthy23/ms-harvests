@@ -7,6 +7,7 @@ package com.nithishramurthy.farm.fresh.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/** Fields a user can change on their profile. */
 public class UpdateProfileRequest {
     @NotBlank(message = "Name is required")
     private String name;

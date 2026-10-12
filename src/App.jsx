@@ -18,6 +18,7 @@ import ProfileEditPage from "./pages/ProfileEditPage"; // NEW IMPORT
 import { CartProvider } from "./context/CartContext";
 import { AuthProvider } from "./context/AuthContext";
 
+// Top-level routes. Auth and cart state are provided to every page from here.
 function App() {
   return (
     <AuthProvider>

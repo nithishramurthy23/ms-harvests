@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 // This DTO would contain information sent back after successful authentication,
 // such as a JWT token and basic user info.
+/** Body returned after a successful login or OTP verification: the JWT plus basic user details. */
 public class AuthResponse {
     private String token; // For JWT authentication
     private String message;

@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/** One product in a server-side Cart. Not used yet. */
 @Entity
 @Table(name = "cart_items")
 public class CartItem {

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import com.nithishramurthy.farm.fresh.entity.CartItem;
 
+/** One line of a CartDTO. Not used by any endpoint yet. */
 public class CartItemDTO {
     private Long id;
     private Long productId;

@@ -14,6 +14,7 @@ import java.util.function.Function;
 
 import javax.crypto.SecretKey;
 
+/** Older JWT helper. Not used; JwtTokenProvider is the one the app uses. */
 @Service
 public class JwtService {
 

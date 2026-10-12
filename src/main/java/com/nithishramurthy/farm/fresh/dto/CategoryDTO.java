@@ -2,6 +2,7 @@ package com.nithishramurthy.farm.fresh.dto;
 
 import com.nithishramurthy.farm.fresh.entity.Category;
 
+/** Product category as sent to the client. Not used by any endpoint yet. */
 public class CategoryDTO {
     private Long id;
     private String name;

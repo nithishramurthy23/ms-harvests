@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import com.nithishramurthy.farm.fresh.entity.OrderItem;
 
+/** One order line as returned to the client. */
 public class OrderItemDTO {
     private Long id;
     private Long orderId;

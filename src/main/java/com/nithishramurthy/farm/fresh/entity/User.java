@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
 
+/** A customer account, including the pending OTP and failed OTP attempts. */
 @Entity
 @Table(name = "users")
 public class User {

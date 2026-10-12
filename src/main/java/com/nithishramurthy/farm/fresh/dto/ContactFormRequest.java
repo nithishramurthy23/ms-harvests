@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+/** Fields submitted from the "Contact us" form. */
 public class ContactFormRequest {
     @NotBlank(message = "Name cannot be empty")
     private String name;

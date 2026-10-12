@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.nithishramurthy.farm.fresh.entity.Product;
 
+/** Database access for products, including the atomic stock update used at checkout. */
 public interface ProductRepository extends JpaRepository<Product, Long> {
  List<Product> findByCategoryId(Long categoryId);
 

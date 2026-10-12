@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+/** Creates, emails and checks one-time passwords (OTPs). */
 @Service
 public class OtpService {
 

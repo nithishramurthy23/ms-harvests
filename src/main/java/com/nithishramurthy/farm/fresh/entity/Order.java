@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/** A placed order with its shipping address, payment method, total and lines. */
 @Entity
 @Table(name = "orders")
 public class Order {

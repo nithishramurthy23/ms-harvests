@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 
+/** A weekday discount for one category, e.g. 10% off Fruits every Tuesday. */
 @Entity
 @Table(name = "discount_rules", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"day_of_week", "category_id"})

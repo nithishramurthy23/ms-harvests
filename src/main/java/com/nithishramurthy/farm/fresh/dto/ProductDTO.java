@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import com.nithishramurthy.farm.fresh.entity.Product;
 
+/** Product as sent to the client. Not used by any endpoint yet; the catalogue is in the frontend. */
 public class ProductDTO {
     private Long id;
     private String name;

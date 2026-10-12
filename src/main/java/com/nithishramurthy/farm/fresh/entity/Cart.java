@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
+/** Server-side cart table. Not used yet; the cart is kept in the browser. */
 @Entity
 @Table(name = "cart")
 public class Cart {

@@ -24,6 +24,7 @@ import java.util.Date;
 
 import javax.crypto.SecretKey;
 
+/** Creates and checks the JWTs used for login sessions (HMAC-SHA512). */
 @Component
 public class JwtTokenProvider {
 
@@ -48,6 +49,7 @@ public class JwtTokenProvider {
         this.jwtParser = Jwts.parserBuilder().setSigningKey(signingKey).build();
     }
 
+    /** Token for a user who just logged in. */
     public String generateToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         Date now = new Date();
@@ -73,11 +75,13 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    /** Email stored in a token. Only call after validateToken. */
     public String getUsernameFromJWT(String token) {
         Claims claims = jwtParser.parseClaimsJws(token).getBody();
         return claims.getSubject();
     }
 
+    /** True if the token's signature is ours and it hasn't expired. */
     public boolean validateToken(String authToken) {
         try {
             jwtParser.parseClaimsJws(authToken);

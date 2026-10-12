@@ -11,6 +11,7 @@ import com.nithishramurthy.farm.fresh.entity.OrderItem;
 import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.exception.ResourceNotFoundException; // Correct custom exception
 
+/** Read, update and delete individual order lines. */
 @Service
 public class OrderItemService {
 
@@ -56,7 +57,6 @@ public class OrderItemService {
         existingItem.setProductName(updatedItem.getProductName());
         existingItem.setProductWeight(updatedItem.getProductWeight());
         existingItem.setProductImageUrl(updatedItem.getProductImageUrl());
-        // Add any other fields you wish to update
 
         return orderItemRepository.save(existingItem);
     }

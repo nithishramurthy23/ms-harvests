@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import com.nithishramurthy.farm.fresh.entity.OrderItem;
 
+/** Database access for order lines. */
 @Repository
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     List<OrderItem> findByOrderId(Long orderId);

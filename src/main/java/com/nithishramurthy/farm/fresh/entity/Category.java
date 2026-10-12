@@ -16,6 +16,7 @@ import java.util.List;
 
 import com.nithishramurthy.farm.fresh.entity.Product;
 
+/** Product category, such as Fruits or Vegetables. */
 @Entity
 @Table(name = "categories")
 public class Category {

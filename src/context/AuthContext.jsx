@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import api from "../api/axiosInstance";
 
+// Holds the logged-in user and token, and the login/signup/OTP calls every page uses.
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -11,6 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
 
+  // Sends (or stops sending) the JWT with every API request.
   const setAuthHeaders = (authToken) => {
     if (authToken) {
       api.defaults.headers.common["Authorization"] = `Bearer ${authToken}`;
@@ -19,6 +21,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Forgets the session everywhere: storage, request headers and state.
   const clearAuth = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
@@ -29,6 +32,7 @@ export const AuthProvider = ({ children }) => {
     setMessage(null);
   };
 
+  // On page load, restore the session from localStorage and check the token is still valid.
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -53,6 +57,7 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
+  // Password login; stores the returned token and user.
   const login = async (email, password) => {
     setLoading(true);
     setError(null);
@@ -80,6 +85,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Creates the account; the backend emails an activation OTP.
   const signup = async (signupData) => {
     setLoading(true);
     setError(null);
@@ -97,6 +103,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Activates the account with the emailed OTP and logs in.
   const verifyOtp = async (email, otp) => {
     setLoading(true);
     setError(null);
@@ -128,6 +135,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Emails a login OTP.
   const sendOtp = async (email) => {
     setLoading(true);
     setError(null);
@@ -145,6 +153,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Emails a password-reset OTP.
   const forgotPassword = async (email) => {
     setLoading(true);
     setError(null);
@@ -163,6 +172,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Sets a new password using the reset OTP.
   const resetPassword = async (email, otp, newPassword) => {
     setLoading(true);
     setError(null);
@@ -185,11 +195,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Keeps the stored user in sync after a profile edit.
   const updateUser = (updatedUser) => {
     setUser(updatedUser);
     localStorage.setItem("user", JSON.stringify(updatedUser));
   };
 
+  // Ends the session on this device.
   const logout = () => {
     clearAuth();
   };

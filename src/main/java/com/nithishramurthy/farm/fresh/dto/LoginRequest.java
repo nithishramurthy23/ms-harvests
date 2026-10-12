@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/** Login body. Send either a password or an OTP along with the email. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class LoginRequest {
 

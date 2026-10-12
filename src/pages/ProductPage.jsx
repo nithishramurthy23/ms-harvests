@@ -10,6 +10,7 @@ import {
 } from "../utils/bundleUtils";
 import { getTodayDiscount } from "../utils/discounts";
 
+// Detail page for one product or bundle, with today's discount applied.
 export default function ProductPage() {
   const { productId } = useParams();
   const navigate = useNavigate();

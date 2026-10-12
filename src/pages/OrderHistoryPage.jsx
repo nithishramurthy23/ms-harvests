@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Package, Truck, CheckCircle, XCircle } from "lucide-react"; // Icons for status
 
+// Lists the logged-in user's past orders.
 export default function OrderHistoryPage() {
   const { token, isAuthenticated, logout } = useAuth();
   const [orders, setOrders] = useState([]);

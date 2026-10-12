@@ -6,6 +6,8 @@ import { CheckCircle, Truck } from "lucide-react";
 import api from "../api/axiosInstance";
 import { toOrderItems } from "../utils/orderItems";
 
+// Checkout in two steps: fill in shipping details and request an OTP,
+// then enter the OTP from the email to place the order (cash on delivery).
 export default function CheckoutPage() {
   const { state, dispatch } = useCart();
   const { user, isAuthenticated, token } = useAuth();
@@ -51,6 +53,7 @@ export default function CheckoutPage() {
     });
   };
 
+  // Step 1: validate the form and ask the backend to email an order OTP.
   const handleInitiateOrder = async () => {
     setError(null);
     if (!validateForm()) return;
@@ -88,6 +91,7 @@ export default function CheckoutPage() {
     }
   };
 
+  // Step 2: send the order with the OTP. Prices are worked out on the server.
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     setError(null);

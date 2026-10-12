@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.userdetails.UserDetails;
 
+/** Account logic: sign-up, login, OTP verification, password reset and profile updates. */
 @Service
 public class AuthService {
 
@@ -51,6 +52,7 @@ public class AuthService {
         this.customUserDetailsService = customUserDetailsService;
     }
 
+    /** Saves a new, not yet activated user with a hashed password and emails the activation OTP. */
     @Transactional
     public User registerUser(UserRegistrationRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -73,6 +75,10 @@ public class AuthService {
         return savedUser;
     }
 
+    /**
+     * Logs a user in with either an OTP or a password and returns a JWT.
+     * Unverified accounts get a new activation OTP instead.
+     */
     public AuthResponse authenticateUser(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + request.getEmail()));
@@ -119,6 +125,7 @@ public class AuthService {
         return new AuthResponse(jwt, user);
     }
     
+    /** Saves the editable profile fields. */
     @Transactional
     public User updateUserProfile(String userEmail, UpdateProfileRequest updateRequest) {
         User user = userRepository.findByEmail(userEmail)
@@ -132,6 +139,7 @@ public class AuthService {
     }
     
     // New method to verify OTP and log in a new user in a single step
+    /** Checks the activation OTP, enables the account and logs the user in. */
     @Transactional
     public AuthResponse verifyAndLogin(String email, String otp) {
         User user = userRepository.findByEmail(email)
@@ -168,6 +176,7 @@ public class AuthService {
         otpService.generateAndSendOtp(email, "Password Reset OTP", "password reset");
     }
 
+    /** Checks the reset OTP and the new password's strength, then stores the new hash. */
     @Transactional
     public void resetPassword(String email, String otp, String newPassword) {
         boolean isValidOtp = otpService.validateOtp(email, otp);
@@ -186,6 +195,7 @@ public class AuthService {
         userRepository.save(user);
     }
     
+    /** Finds the user a JWT was issued to. */
     public User getUserFromToken(String token) {
         String userEmail = jwtTokenProvider.getUsernameFromJWT(token);
         return userRepository.findByEmail(userEmail)

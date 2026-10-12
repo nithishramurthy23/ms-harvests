@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/** Read and delete individual order lines. */
 @RestController
 @RequestMapping("/api/order-items")
 public class OrderItemController {

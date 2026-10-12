@@ -28,6 +28,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import jakarta.servlet.http.HttpServletResponse;
 
+/** Security setup: stateless JWT auth, which URLs are public, password hashing and CORS. */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -77,6 +78,10 @@ public class SecurityConfig {
         return new JwtAuthenticationFilter(jwtTokenProvider, userDetailsService);
     }
 
+    /**
+     * Public routes are listed here; everything else needs a valid JWT.
+     * No server-side sessions: every request carries its own token.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -102,6 +107,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /** Lets the frontend origins from app.cors.allowed-origins call the API. */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

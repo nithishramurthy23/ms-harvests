@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+/** Product pricing, including today's category discounts. */
 @Service
 public class ProductService {
 
@@ -46,6 +47,7 @@ public class ProductService {
         return product.getPrice();
     }
 
+    /** All products with today's discount applied to their price (not saved). */
     public List<Product> getDiscountedProducts() {
         var currentDay = LocalDate.now().getDayOfWeek();
 

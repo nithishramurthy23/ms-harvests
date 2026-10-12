@@ -2,6 +2,7 @@ package com.nithishramurthy.farm.fresh.dto;
 
 import com.nithishramurthy.farm.fresh.entity.User;
 
+/** Public view of a user, without password or OTP fields. Not used by any endpoint yet. */
 public class UserDTO {
     private Long id;
     private String name;

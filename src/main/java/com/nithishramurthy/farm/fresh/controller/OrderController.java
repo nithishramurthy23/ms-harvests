@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/** REST endpoints for checkout and order history. All of them need a logged-in user. */
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -30,6 +31,7 @@ public class OrderController {
         this.orderService = orderService;
     }
 
+    /** Step 1 of checkout: emails an OTP the user must enter to confirm the order. */
     @PostMapping("/initiate-order")
     public ResponseEntity<?> initiateOrder(@Valid @RequestBody SendOtpRequest sendOtpRequest) {
         try {
@@ -52,6 +54,7 @@ public class OrderController {
         }
     }
 
+    /** Step 2 of checkout: validates the request and places the order. */
     @PostMapping("/place-order")
     public ResponseEntity<?> placeOrder(@Valid @RequestBody OrderRequest orderRequest, BindingResult bindingResult) {
         try {
@@ -73,6 +76,7 @@ public class OrderController {
         }
     }
 
+    /** All orders of the logged-in user. */
     @GetMapping("/history")
     public ResponseEntity<List<OrderDTO>> getOrderHistory() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -85,6 +89,7 @@ public class OrderController {
         return ResponseEntity.ok(orderHistory);
     }
 
+    /** One order, only if it belongs to the logged-in user. */
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderDTO> getOrderDetails(@PathVariable Long orderId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

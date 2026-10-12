@@ -2,6 +2,7 @@ package com.nithishramurthy.farm.fresh.controller;
 
 import org.springframework.web.bind.annotation.*;
 
+/** Simple status endpoint to check that the backend is up. */
 @RestController
 public class HomeController {
 

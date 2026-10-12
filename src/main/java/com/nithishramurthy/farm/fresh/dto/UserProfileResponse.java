@@ -2,6 +2,7 @@ package com.nithishramurthy.farm.fresh.dto;
 
 
 
+/** Profile details returned by /api/auth/me and after a profile update. */
 public class UserProfileResponse {
     private Long id;
     private String name;

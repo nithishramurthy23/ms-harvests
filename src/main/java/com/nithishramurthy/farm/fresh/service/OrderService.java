@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/** Checkout and order lookup. */
 @Service
 public class OrderService {
 
@@ -48,6 +49,7 @@ public class OrderService {
         this.productService = productService;
     }
 
+    /** Emails the order confirmation OTP. */
     @Transactional
     public void initiateOrderConfirmation(String userEmail) {
         User user = userRepository.findByEmail(userEmail)
@@ -56,6 +58,10 @@ public class OrderService {
         otpService.generateAndSendOtp(user.getEmail(), "Order Confirmation OTP", "order confirmation");
     }
 
+    /**
+     * Places an order for the logged-in user. Runs in one transaction: if anything
+     * fails (bad OTP, not enough stock), nothing is saved and reserved stock is released.
+     */
     @Transactional
     public OrderResponse placeOrder(OrderRequest orderRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

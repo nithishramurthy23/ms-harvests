@@ -2,6 +2,7 @@ package com.nithishramurthy.farm.fresh.dto;
 
 // No direct OTP field here, as OTP is sent AFTER registration request.
 // The user will be created with enabled = false initially.
+/** Sign-up form fields. */
 public class UserRegistrationRequest {
 
     private String name;

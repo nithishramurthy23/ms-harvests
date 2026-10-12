@@ -3,6 +3,7 @@ package com.nithishramurthy.farm.fresh.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
+/** One line of an order. Name, price and image are copied from the product when the order is placed, so later product changes don't alter past orders. */
 @Entity
 @Table(name = "order_items")
 public class OrderItem {

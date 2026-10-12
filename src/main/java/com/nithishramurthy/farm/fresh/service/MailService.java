@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter; // Import DateTimeFormatter
 
+/** Builds the app's emails (OTP, contact form, order confirmation) and hands them to MailDispatcher. */
 @Service
 public class MailService {
 

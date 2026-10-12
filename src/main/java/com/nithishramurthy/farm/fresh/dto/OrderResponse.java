@@ -3,6 +3,7 @@ package com.nithishramurthy.farm.fresh.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/** Returned after an order is placed: id, status, total and time. */
 public class OrderResponse {
     private Long orderId;
     private String status; // e.g., "Pending", "Confirmed", "Shipped"

@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import jakarta.persistence.*;
 
 
+/** A product for sale, with its current price, original price and stock. */
 @Entity
 @Table(name = "products")
 public class Product {

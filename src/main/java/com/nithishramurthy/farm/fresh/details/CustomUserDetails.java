@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.Collections; // For Collections.singletonList()
 
+/** Adapts our User entity to Spring Security's UserDetails, using the email as the username. */
 public class CustomUserDetails implements UserDetails {
 
     private User user;

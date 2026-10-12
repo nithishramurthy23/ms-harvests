@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+/** Checkout body: shipping details, the items to buy, payment method and the order OTP. */
 public class OrderRequest {
 
     @Valid

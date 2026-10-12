@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/** Body for setting a new password with the OTP sent to the user's email. */
 public class PasswordResetRequest {
 
     @Email

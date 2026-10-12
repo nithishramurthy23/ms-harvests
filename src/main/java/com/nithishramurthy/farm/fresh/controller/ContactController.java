@@ -15,10 +15,9 @@ import com.nithishramurthy.farm.fresh.service.MailService;
 
 import jakarta.validation.Valid;
 
-// Remove the duplicate @RestController import
-// import org.springframework.web.bind.annotation.RestController;
 
 
+/** Receives the "Contact us" form and emails it to the shop's inbox. */
 @RestController
 @RequestMapping("/api/contact")
 public class ContactController {
@@ -29,8 +28,8 @@ public class ContactController {
         this.mailService = mailService;
     }
 
+    /** Validates the form and emails it to the shop. */
     @PostMapping
-    // Use ContactFormRequest and BindingResult for validation
     public ResponseEntity<?> submitContactForm(@Valid @RequestBody ContactFormRequest contactFormRequest, BindingResult bindingResult) {
         try {
             // Check for validation errors
@@ -41,7 +40,6 @@ public class ContactController {
             }
 
             // Process the contact form (send email)
-            // Ensure your MailService has a sendContactMail method that accepts ContactFormRequest
             mailService.sendContactMail(contactFormRequest);
 
             return ResponseEntity.ok().body("Message sent successfully!");

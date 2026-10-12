@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+/** REST endpoints for sign-up, login (password or email OTP), password reset and the user's profile. */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -37,6 +38,7 @@ public class AuthController {
         this.otpService = otpService;
     }
 
+    /** Creates a disabled account and emails an activation OTP. */
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody UserRegistrationRequest registerRequest) {
         try {
@@ -49,6 +51,7 @@ public class AuthController {
         }
     }
 
+    /** Logs in with a password or an OTP and returns a JWT. */
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@Valid @RequestBody LoginRequest loginRequest) {
         try {
@@ -61,6 +64,7 @@ public class AuthController {
         }
     }
 
+    /** Emails an OTP for passwordless login. */
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(@Valid @RequestBody SendOtpRequest sendOtpRequest) {
         try {
@@ -73,6 +77,7 @@ public class AuthController {
         }
     }
 
+    /** Activates a new account with its OTP and logs the user in. */
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpRequest verifyOtpRequest) {
         try {
@@ -85,6 +90,7 @@ public class AuthController {
         }
     }
 
+    /** Sends a fresh activation OTP. */
     @PostMapping("/resend-otp")
     public ResponseEntity<?> resendOtp(@Valid @RequestBody SendOtpRequest resendRequest) {
         try {
@@ -97,6 +103,7 @@ public class AuthController {
         }
     }
 
+    /** Emails a password-reset OTP. Always answers the same way so it can't be used to find out which emails are registered. */
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody RequestPasswordResetRequest request) {
         try {
@@ -109,6 +116,7 @@ public class AuthController {
         }
     }
 
+    /** Sets a new password after checking the reset OTP. */
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         try {
@@ -121,6 +129,7 @@ public class AuthController {
         }
     }
 
+    /** Updates name, phone and address of the logged-in user. */
     @PutMapping("/update-profile")
     public ResponseEntity<?> updateProfile(@Valid @RequestBody UpdateProfileRequest updateRequest) {
         try {
@@ -146,6 +155,7 @@ public class AuthController {
         }
     }
 
+    /** Returns the profile of the user the token belongs to. */
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@RequestHeader("Authorization") String authHeader) {
         try {

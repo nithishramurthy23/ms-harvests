@@ -3,6 +3,7 @@ package com.nithishramurthy.farm.fresh.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+/** Body for endpoints that email an OTP to the given address. */
 public class SendOtpRequest {
 
     @NotBlank(message = "Email is required")

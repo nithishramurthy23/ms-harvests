@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import com.nithishramurthy.farm.fresh.entity.Cart;
 
+/** Cart as sent to the client. Not used by any endpoint yet; the cart currently lives in the browser. */
 public class CartDTO {
     private Long id;
     private Long userId;

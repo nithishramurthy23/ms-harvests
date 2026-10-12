@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional; // Good practice for database operations
 
+/** Loads a user by email for Spring Security. */
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 

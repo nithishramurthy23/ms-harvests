@@ -3,6 +3,7 @@ package com.nithishramurthy.farm.fresh.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+/** Body for activating an account with the OTP from the sign-up email. */
 public class VerifyOtpRequest {
     @NotBlank(message = "Email is required")
     @Email(message = "Please enter a valid email address")
