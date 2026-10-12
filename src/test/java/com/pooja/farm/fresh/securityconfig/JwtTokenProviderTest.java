@@ -2,7 +2,6 @@ package com.pooja.farm.fresh.securityconfig;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -62,19 +61,14 @@ class JwtTokenProviderTest {
     }
 
     @Test
-    void weakSecretIsRefused() {
-        JwtTokenProvider weak = newProvider(randomSecret(16), 60_000);
-
-        assertThatThrownBy(() -> weak.generateToken("asha@example.com"))
+    void weakSecretIsRefusedAtStartup() {
+        assertThatThrownBy(() -> newProvider(randomSecret(16), 60_000))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("512 bits");
     }
 
     private static JwtTokenProvider newProvider(String secret, long expirationMs) {
-        JwtTokenProvider provider = new JwtTokenProvider();
-        ReflectionTestUtils.setField(provider, "jwtSecret", secret);
-        ReflectionTestUtils.setField(provider, "jwtExpirationInMs", expirationMs);
-        return provider;
+        return new JwtTokenProvider(secret, expirationMs);
     }
 
     private static String randomSecret(int bytes) {

@@ -2,6 +2,7 @@ package com.pooja.farm.fresh.securityconfig;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -28,18 +29,23 @@ public class JwtTokenProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
 
-    @Value("${jwt.secret}") // ✅ match your properties
-    private String jwtSecret;
+    private final Key signingKey;
+    private final long jwtExpirationInMs;
 
-    @Value("${jwt.expiration}")
-    private long jwtExpirationInMs;
+    // Built once and reused: building a parser per request made jjwt scan the
+    // classpath for its JSON deserializer on every call, which showed up as
+    // ~20% of CPU in the load test. JwtParser is immutable and thread-safe.
+    private final JwtParser jwtParser;
 
-    private Key getSigningKey() {
+    public JwtTokenProvider(@Value("${jwt.secret}") String jwtSecret,
+                            @Value("${jwt.expiration}") long jwtExpirationInMs) {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         if (keyBytes.length < 64) {
             throw new IllegalArgumentException("JWT secret must be at least 512 bits for HS512");
         }
-        return Keys.hmacShaKeyFor(keyBytes);
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+        this.jwtExpirationInMs = jwtExpirationInMs;
+        this.jwtParser = Jwts.parserBuilder().setSigningKey(signingKey).build();
     }
 
     public String generateToken(Authentication authentication) {
@@ -51,7 +57,7 @@ public class JwtTokenProvider {
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
     }
 
@@ -63,22 +69,18 @@ public class JwtTokenProvider {
                 .setSubject(email)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
     }
 
     public String getUsernameFromJWT(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        Claims claims = jwtParser.parseClaimsJws(token).getBody();
         return claims.getSubject();
     }
 
     public boolean validateToken(String authToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
+            jwtParser.parseClaimsJws(authToken);
             return true;
         } catch (SignatureException ex) {
             logger.error("Invalid JWT signature: {}", ex.getMessage());
