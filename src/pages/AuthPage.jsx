@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -22,7 +22,7 @@ export default function AuthPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const [showActivationSuccess, setShowActivationSuccess] = useState(false);
   const [failedOtpAttempts, setFailedOtpAttempts] = useState(0); // Track failed attempts
-  const [maxOtpAttempts, setMaxOtpAttempts] = useState(2); // Maximum retries allowed
+  const maxOtpAttempts = 2; // Maximum retries allowed
 
   const navigate = useNavigate();
   const {
@@ -419,7 +419,7 @@ export default function AuthPage() {
               {loading ? "Verifying..." : "Verify OTP"}
             </button>
             <p className="text-center text-sm">
-              Didn't receive OTP?{" "}
+              Didn&apos;t receive OTP?{" "}
               <button
                 type="button"
                 onClick={handleResendOtp}

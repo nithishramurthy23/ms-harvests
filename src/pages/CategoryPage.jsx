@@ -1,14 +1,9 @@
-import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
 import { categories } from "../components/Categories";
 import { categoryProducts } from "../data/products";
 import { useCart } from "../context/CartContext";
 import { getTodayDiscount } from "../utils/discounts";
-
-import { applyDiscountToList } from "../utils/discounts";
-
-//const discountedProducts = applyDiscountToList(categoryProducts[categoryName] || []);
 
 export default function CategoryPage() {
   const { categoryName } = useParams();

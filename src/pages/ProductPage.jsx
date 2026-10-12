@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ShoppingCart, ArrowLeft, Plus, Minus } from "lucide-react";
 import { categoryProducts } from "../data/products";

@@ -1,12 +1,12 @@
 // src/pages/ProfileEditPage.jsx
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axiosInstance";
 
 export default function ProfileEditPage() {
-  const { user, token, isAuthenticated, logout } = useAuth();
+  const { user, token, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: user?.name || "",

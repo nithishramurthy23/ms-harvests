@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useCart } from "../context/CartContext";
 import { X, Plus, Minus, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -76,6 +76,7 @@ export default function Cart({ onClose }) {
               <div className="flex items-center gap-3 mt-2">
                 <button
                   onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                  aria-label={`Decrease ${item.name}`}
                   className="p-1 rounded-full hover:bg-gray-100"
                 >
                   <Minus className="w-4 h-4" />
@@ -83,6 +84,7 @@ export default function Cart({ onClose }) {
                 <span className="w-8 text-center">{item.quantity}</span>
                 <button
                   onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                  aria-label={`Increase ${item.name}`}
                   className="p-1 rounded-full hover:bg-gray-100"
                 >
                   <Plus className="w-4 h-4" />
@@ -93,6 +95,7 @@ export default function Cart({ onClose }) {
               onClick={() =>
                 dispatch({ type: "REMOVE_ITEM", payload: item.id })
               }
+              aria-label={`Remove ${item.name}`}
               className="p-2 rounded-full hover:bg-gray-100"
             >
               <X className="w-5 h-5" />
