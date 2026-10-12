@@ -10,6 +10,8 @@ An online store for fresh farm produce. Customers can browse products, sign up w
 
 This guide walks you through getting the app running on your own computer, step by step. You don't need to know Java or React to follow it.
 
+For the engineering choices behind the app (server-side pricing, overselling protection, scaling, and their tradeoffs), see [docs/design-decisions.md](docs/design-decisions.md).
+
 ---
 
 ## Contents
