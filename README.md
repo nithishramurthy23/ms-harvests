@@ -1,5 +1,7 @@
 # Farm Fresh
 
+[![CI](https://github.com/nithishramurthy23/ms-harvests/actions/workflows/ci.yml/badge.svg)](https://github.com/nithishramurthy23/ms-harvests/actions/workflows/ci.yml)
+
 An online store for fresh farm produce. Customers can browse products, sign up with an email code (OTP), add items to a cart, and place cash-on-delivery orders.
 
 - **Frontend:** React + Vite + Tailwind CSS (the website you see in the browser)
@@ -304,12 +306,14 @@ ms-harvests/
 ├── src/                     React frontend (pages, components, cart and login state)
 │   ├── api/axiosInstance.js   every call to the backend goes through here
 │   ├── pages/                 one file per page (Home, Products, Checkout, ...)
-│   └── main/                  the Spring Boot backend lives here, inside src/
-│       ├── java/com/pooja/farm/fresh/           controllers, services, entities, security
-│       └── resources/application.properties    backend settings (reads .env)
+│   ├── main/                  the Spring Boot backend lives here, inside src/
+│   │   ├── java/com/pooja/farm/fresh/           controllers, services, entities, security
+│   │   └── resources/application.properties    backend settings (reads .env)
+│   └── test/                  backend tests (frontend tests sit next to the code as *.test.js)
 ├── Untitled.sql             database tables + sample categories, products, discounts
 ├── pom.xml                  backend dependencies (Maven)
 ├── package.json             frontend dependencies (npm)
+├── .github/workflows/ci.yml runs all tests on every push and pull request
 ├── docker-compose.yml       runs MySQL + backend copies + nginx together
 ├── Dockerfile.backend       how the backend image is built
 ├── Dockerfile.frontend      how the frontend image is built
@@ -317,6 +321,23 @@ ms-harvests/
 ├── .env.example             template for your own .env
 └── server/                  an old, unused Express + MongoDB prototype (ignore it)
 ```
+
+---
+
+## Running the tests
+
+Neither test suite needs MySQL, a mail server or a `.env` file.
+
+```bash
+# Backend: unit tests plus integration tests against an in-memory H2 database
+mvn verify
+# coverage report: target/site/jacoco/index.html
+
+# Frontend: Vitest + React Testing Library
+npm test
+```
+
+GitHub Actions runs both suites, the linter, and the Docker image builds on every push and pull request (`.github/workflows/ci.yml`).
 
 ---
 
