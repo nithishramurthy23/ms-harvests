@@ -110,6 +110,8 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 VITE_API_URL=http://localhost:8080/api
 ```
 
+**Optional: Sign in with Google.** To show a Google button on the login page, create a Google client ID and put it in `GOOGLE_CLIENT_ID`. Step-by-step: [docs/google-sign-in.md](docs/google-sign-in.md). Leave it empty and the button simply doesn't appear.
+
 > Without working Gmail settings the app still starts, but sign-up codes and order emails won't arrive. See [Troubleshooting](#7-troubleshooting) for a way to test without email.
 
 ---
@@ -292,6 +294,7 @@ All settings come from `.env` (or real environment variables).
 | `MAIL_USERNAME`, `MAIL_PASSWORD` | backend email (OTP, order confirmations, contact form) | none |
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | backend database | `localhost:3306/farm_fresh`, `root`, none |
 | `JWT_SECRET`, `JWT_EXPIRATION` | backend login tokens | none, 24h (`86400000` milliseconds) |
+| `GOOGLE_CLIENT_ID` | backend, enables Sign in with Google ([setup](docs/google-sign-in.md)) | empty (button hidden) |
 | `CORS_ALLOWED_ORIGINS` | backend, comma-separated frontend URLs allowed to call it | `http://localhost:5173,http://localhost:3000` |
 | `PORT` | backend port | `8080` |
 | `VITE_API_URL` | frontend, where to find the backend | `http://localhost:8080/api` |

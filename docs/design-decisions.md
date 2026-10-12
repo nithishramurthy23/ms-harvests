@@ -122,6 +122,25 @@ All secrets (database password, JWT secret, Gmail app password) and per-environm
 
 ---
 
+## 9. Sign in with Google: verify the ID token, then issue our own JWT
+
+**Problem.** Users wanted to log in with Google instead of making yet another password, but the backend runs as several stateless copies (decision 3), so anything that keeps login state in one copy's memory would break.
+
+**Decision.** The frontend uses Google Identity Services: Google's popup returns a signed **ID token** to the browser, which posts it to `POST /api/auth/google`. `GoogleTokenVerifier` checks it with Spring Security's `NimbusJwtDecoder`: RS256 signature against Google's published public keys (fetched once and cached), issuer is Google, audience is *our* client ID, not expired, and `email_verified` is true. `AuthService.loginWithGoogle` then finds or creates the user by email and returns the same JWT as a password login. From that point on the rest of the app doesn't know or care how the user logged in.
+
+**Alternatives considered.**
+- *Spring's `oauth2Login()` (authorization-code flow with redirects).* It stores the OAuth `state` in an HTTP session between the redirect to Google and the callback. With two backend copies behind a load balancer, the callback can land on the copy that doesn't have that session, so I'd need sticky sessions or a shared session store. It also needs a client secret.
+- *Trust the email the frontend sends.* Anyone could claim any email. The token's signature and audience check are what make it safe.
+
+**Tradeoff.**
+- Linking by email: a Google login with the same email as an existing password account logs into that account. That's safe only because we require Google's `email_verified` claim; Google has proven the person controls that inbox, which is the same thing our sign-up OTP proves.
+- Google users get a random, unknown password hash, because the `password` column is `NOT NULL`. A cleaner schema would store the login provider and allow a null password.
+- The backend needs to reach `googleapis.com` to fetch the signing keys (cached, refreshed when Google rotates them).
+
+**Tested by.** `GoogleTokenVerifierTest` signs tokens with a test RSA key and checks forged, expired, wrong-audience, wrong-issuer and unverified-email tokens are rejected. `GoogleSignInIntegrationTest` covers first login creating an account, linking to an existing account, and the returned JWT working on `/api/auth/me`.
+
+---
+
 ## What I'd do next
 
 Roughly in order of value:

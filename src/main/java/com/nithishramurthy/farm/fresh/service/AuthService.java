@@ -9,10 +9,12 @@ import com.nithishramurthy.farm.fresh.dto.UserRegistrationRequest;
 import com.nithishramurthy.farm.fresh.entity.User;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
 import com.nithishramurthy.farm.fresh.securityconfig.CustomUserDetailsService;
+import com.nithishramurthy.farm.fresh.securityconfig.GoogleTokenVerifier;
 import com.nithishramurthy.farm.fresh.securityconfig.JwtTokenProvider;
 
 import java.time.Instant;
 import java.util.Random;
+import java.util.UUID;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -35,6 +37,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final MailService mailService;
     private final CustomUserDetailsService customUserDetailsService;
+    private final GoogleTokenVerifier googleTokenVerifier;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -42,7 +45,8 @@ public class AuthService {
                        OtpService otpService,
                        JwtTokenProvider jwtTokenProvider,
                        MailService mailService,
-                       CustomUserDetailsService customUserDetailsService) {
+                       CustomUserDetailsService customUserDetailsService,
+                       GoogleTokenVerifier googleTokenVerifier) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
@@ -50,6 +54,7 @@ public class AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
         this.mailService = mailService;
         this.customUserDetailsService = customUserDetailsService;
+        this.googleTokenVerifier = googleTokenVerifier;
     }
 
     /** Saves a new, not yet activated user with a hashed password and emails the activation OTP. */
@@ -125,6 +130,35 @@ public class AuthService {
         return new AuthResponse(jwt, user);
     }
     
+    /**
+     * Sign in with Google: checks the Google ID token, then logs in the user with
+     * that email, creating the account on first visit. Returns our own JWT, so the
+     * rest of the app doesn't care how the user logged in.
+     */
+    @Transactional
+    public AuthResponse loginWithGoogle(String googleIdToken) {
+        GoogleTokenVerifier.GoogleUser googleUser = googleTokenVerifier.verify(googleIdToken);
+
+        User user = userRepository.findByEmail(googleUser.email()).orElseGet(() -> {
+            User newUser = new User();
+            newUser.setEmail(googleUser.email());
+            newUser.setName(googleUser.name());
+            // Google users never type a password here. Store the hash of a random one
+            // so the column stays filled but nobody can log in with it; they can still
+            // set a real one later with "Forgot password".
+            newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+            newUser.setRole("ROLE_USER");
+            return newUser;
+        });
+
+        // Google has confirmed they own this email, which is what the activation OTP checks.
+        user.setEnabled(true);
+        User savedUser = userRepository.save(user);
+
+        String jwt = jwtTokenProvider.generateToken(savedUser.getEmail());
+        return new AuthResponse(jwt, savedUser);
+    }
+
     /** Saves the editable profile fields. */
     @Transactional
     public User updateUserProfile(String userEmail, UpdateProfileRequest updateRequest) {

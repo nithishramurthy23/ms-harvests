@@ -4,6 +4,7 @@ package com.nithishramurthy.farm.fresh.controller;
 
 import com.nithishramurthy.farm.fresh.details.CustomUserDetails;
 import com.nithishramurthy.farm.fresh.dto.AuthResponse;
+import com.nithishramurthy.farm.fresh.dto.GoogleLoginRequest;
 import com.nithishramurthy.farm.fresh.dto.LoginRequest;
 import com.nithishramurthy.farm.fresh.dto.UpdateProfileRequest;
 import com.nithishramurthy.farm.fresh.dto.UserRegistrationRequest;
@@ -13,6 +14,7 @@ import com.nithishramurthy.farm.fresh.dto.PasswordResetRequest;
 import com.nithishramurthy.farm.fresh.dto.RequestPasswordResetRequest;
 import com.nithishramurthy.farm.fresh.dto.UserProfileResponse;
 import com.nithishramurthy.farm.fresh.entity.User;
+import com.nithishramurthy.farm.fresh.securityconfig.GoogleTokenVerifier;
 import com.nithishramurthy.farm.fresh.service.AuthService;
 import com.nithishramurthy.farm.fresh.service.OtpService;
 
@@ -32,10 +34,12 @@ public class AuthController {
 
     private final AuthService authService;
     private final OtpService otpService;
+    private final GoogleTokenVerifier googleTokenVerifier;
 
-    public AuthController(AuthService authService, OtpService otpService) {
+    public AuthController(AuthService authService, OtpService otpService, GoogleTokenVerifier googleTokenVerifier) {
         this.authService = authService;
         this.otpService = otpService;
+        this.googleTokenVerifier = googleTokenVerifier;
     }
 
     /** Creates a disabled account and emails an activation OTP. */
@@ -61,6 +65,32 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", "Login failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Tells the frontend whether to show "Sign in with Google" and which client ID
+     * to use. The client ID is public (it's in every Google button on the web), and
+     * serving it from here means GOOGLE_CLIENT_ID only has to be set in one place.
+     */
+    @GetMapping("/google/config")
+    public ResponseEntity<?> googleConfig() {
+        return ResponseEntity.ok(Map.of(
+                "enabled", googleTokenVerifier.isEnabled(),
+                "clientId", googleTokenVerifier.getClientId()));
+    }
+
+    /** Sign in with Google: swaps a Google ID token for our JWT. */
+    @PostMapping("/google")
+    public ResponseEntity<?> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        try {
+            return ResponseEntity.ok(authService.loginWithGoogle(request.getCredential()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "Google sign-in failed: " + e.getMessage()));
         }
     }
 

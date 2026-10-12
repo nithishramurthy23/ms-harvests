@@ -85,6 +85,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Sign in with Google: trades Google's ID token for our own JWT.
+  // New Google users get an account automatically.
+  const loginWithGoogle = async (credential) => {
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      setAuthHeaders(null);
+
+      const { data } = await api.post("/auth/google", { credential });
+
+      setUser(data);
+      setToken(data.token);
+      setAuthHeaders(data.token);
+
+      localStorage.setItem("user", JSON.stringify(data));
+      localStorage.setItem("token", data.token);
+
+      return { success: true, user: data, message: "Login successful!" };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || "Google sign-in failed";
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Creates the account; the backend emails an activation OTP.
   const signup = async (signupData) => {
     setLoading(true);
@@ -216,6 +244,7 @@ export const AuthProvider = ({ children }) => {
         message,
         isAuthenticated: !!token,
         login,
+        loginWithGoogle,
         signup,
         verifyOtp, // New function for OTP verification
         sendOtp,
