@@ -112,4 +112,14 @@ class OtpServiceTest {
         assertThat(otpService.validateOtp(EMAIL, "482913")).isTrue();
         assertThat(user.getFailedAttempts()).isZero();
     }
+
+    @Test
+    void newOtpUnlocksAfterTooManyFailedAttempts() {
+        user.setFailedAttempts(2);
+
+        otpService.generateAndSendOtp(EMAIL, "Login OTP", "login");
+
+        assertThat(user.getFailedAttempts()).isZero();
+        assertThat(otpService.validateOtp(EMAIL, user.getOtpCode())).isTrue();
+    }
 }
