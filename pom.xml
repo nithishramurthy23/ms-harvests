@@ -75,7 +75,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.30</version> <!-- or latest -->
+            <version>1.18.30</version>
             <scope>provided</scope>
         </dependency>
 
@@ -87,12 +87,6 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
 
         <!-- JWT -->
         <dependency>
@@ -112,13 +106,6 @@
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
-
-        <dependency>
-  <groupId>org.projectlombok</groupId>
-  <artifactId>lombok</artifactId>
-  <version>1.18.30</version> <!-- or the latest -->
-  <scope>provided</scope>
-</dependency>
 
 
         <!-- Testing -->
