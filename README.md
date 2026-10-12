@@ -2,7 +2,16 @@
 
 [![CI](https://github.com/nithishramurthy23/ms-harvests/actions/workflows/ci.yml/badge.svg)](https://github.com/nithishramurthy23/ms-harvests/actions/workflows/ci.yml)
 
-An online store for fresh farm produce. Customers can browse products, sign up with an email code (OTP), add items to a cart, and place cash-on-delivery orders.
+An online store for fresh farm produce from the Nilgiris. Customers can browse categories, products and ready-made baskets, add items to a cart, and place cash-on-delivery orders.
+
+What a customer can do:
+
+- Sign up with email and password, confirmed by a 6-digit code sent by email (OTP).
+- Log in with a password, with an email code instead of a password, or with **Sign in with Google** (optional, see [docs/google-sign-in.md](docs/google-sign-in.md)).
+- Reset a forgotten password with an email code.
+- Edit their profile (name, phone, address), see past orders, and send the shop a message from the Contact page.
+
+There is no admin panel yet. Products, prices, stock and order statuses are changed in the database (see [Changing products and prices](#10-changing-products-and-prices)).
 
 - **Frontend:** React + Vite + Tailwind CSS (the website you see in the browser)
 - **Backend:** Spring Boot (Java 17) with JWT login and email OTP (the server that handles accounts and orders)
@@ -25,6 +34,9 @@ For the engineering choices behind the app (server-side pricing, overselling pro
 7. [Troubleshooting](#7-troubleshooting)
 8. [Settings reference](#8-settings-reference)
 9. [Project layout](#9-project-layout)
+10. [Changing products and prices](#10-changing-products-and-prices)
+11. [Running the tests](#running-the-tests)
+12. [Before putting this online](#before-putting-this-online)
 
 ---
 
@@ -131,6 +143,8 @@ Check it works:
 docker --version
 docker compose version
 ```
+
+> **`docker compose` says "unknown command"?** Older installs (and some Homebrew setups on macOS) have the separate `docker-compose` program instead of the Compose plugin. Check with `docker-compose version`. If that works, type `docker-compose` (with a dash) wherever this guide says `docker compose`. Everything else is the same.
 
 ### 4.2 Start the app
 
@@ -271,6 +285,15 @@ MySQL isn't running. Without Docker: `brew services start mysql` (macOS) or star
 **`Port 8080 (or 8081, 5173, 3306) is already in use`.**
 Something else is using that port, often an older copy of this app. Find it with `lsof -i :8080` (macOS/Linux) and stop it. If you already run MySQL on your computer, that's fine for Docker, because the Docker database doesn't use port 3306 on your machine.
 
+**`docker compose: unknown command` or `'compose' is not a docker command`.**
+Use `docker-compose` (with a dash) instead. See the note in [4.1](#41-install-docker).
+
+**I changed a value in `.env` but the app still uses the old one (or says `Set DB_PASSWORD in .env`).**
+Make sure each setting appears only **once** in `.env`. If the file has two `DB_PASSWORD=` lines (for example an empty one left over from `.env.example` and your filled-in one further down), the empty one can win. Delete the extra line. After changing `.env`, restart: `docker compose up -d --build`, or stop and restart `mvn spring-boot:run`. If the setting you changed is `DB_PASSWORD`, also see the `Access denied` entry above.
+
+**The Google button doesn't appear on the login page.**
+`GOOGLE_CLIENT_ID` is empty or the backend hasn't been restarted since you set it. Put it in `.env` and restart the backend. If the button shows but Google says `origin_mismatch`, add the address you opened the site on to **Authorized JavaScript origins** ([docs/google-sign-in.md](docs/google-sign-in.md)).
+
 **`WeakKeyException` or other JWT errors on login.**
 `JWT_SECRET` is empty or too short. Generate one with the `openssl` command in step 3.
 
@@ -300,7 +323,11 @@ All settings come from `.env` (or real environment variables).
 | `VITE_API_URL` | frontend, where to find the backend | `http://localhost:8080/api` |
 | `BACKEND_REPLICAS` | Docker only, number of backend copies | `2` |
 
-With Docker, `DB_URL`, `DB_USERNAME` and `CORS_ALLOWED_ORIGINS` are set automatically in `docker-compose.yml`, so you only need `MAIL_*`, `DB_PASSWORD` and `JWT_SECRET`.
+With Docker, `DB_URL`, `DB_USERNAME` and `CORS_ALLOWED_ORIGINS` are set automatically in `docker-compose.yml`, so you only need `MAIL_*`, `DB_PASSWORD` and `JWT_SECRET` (plus `GOOGLE_CLIENT_ID` if you want the Google button).
+
+`DOMAIN` and `BACKUP_KEEP_DAYS` in `.env.example` are only used when deploying to a server ([docs/deployment.md](docs/deployment.md)).
+
+**The shop's own email address** (`msharvests@gmail.com`) is not a setting. It is set in `src/main/java/com/nithishramurthy/farm/fresh/mail/MailConstant.java` (contact-form messages are sent there) and shown in `src/components/Footer.jsx` and `src/pages/ContactPage.jsx`. Change all three if the address changes. Emails are actually sent through the Gmail account in `MAIL_USERNAME`, so for the "From" address to match, use that same account (or add it as a "Send mail as" alias in Gmail).
 
 ---
 
@@ -311,6 +338,9 @@ ms-harvests/
 ├── src/                     React frontend (pages, components, cart and login state)
 │   ├── api/axiosInstance.js   every call to the backend goes through here
 │   ├── pages/                 one file per page (Home, Products, Checkout, ...)
+│   ├── components/            shared pieces (navbar, product cards, cart, Google button, ...)
+│   ├── context/               login state (AuthContext) and cart state (CartContext)
+│   ├── data/                  product list, baskets and category text shown on the site
 │   ├── main/                  the Spring Boot backend lives here, inside src/
 │   │   ├── java/com/nithishramurthy/farm/fresh/           controllers, services, entities, security
 │   │   └── resources/application.properties    backend settings (reads .env)
@@ -323,9 +353,48 @@ ms-harvests/
 ├── Dockerfile.backend       how the backend image is built
 ├── Dockerfile.frontend      how the frontend image is built
 ├── deploy/nginx.conf        nginx: serves the site and load-balances /api
+├── deploy/Caddyfile, deploy/docker-compose.prod.yml   HTTPS + backups for a real server
+├── docs/                    design decisions, deployment guide, Google sign-in setup
+├── loadtest/                k6 load tests and their results
 ├── .env.example             template for your own .env
 └── server/                  an old, unused Express + MongoDB prototype (ignore it)
 ```
+
+---
+
+## 10. Changing products and prices
+
+The product list lives in **two places**, and they must match:
+
+| Where | What it controls |
+| --- | --- |
+| `src/data/products.js` (and `bundles.js` for baskets) | What the website shows: names, pictures, prices, weights. |
+| The `products` table in MySQL (first filled from `Untitled.sql`) | What the customer is actually charged, and how much stock is left. The backend ignores prices sent by the browser ([why](docs/design-decisions.md#1-the-server-decides-the-price)). |
+
+Each product has the same `id` in both. To add or change a product:
+
+1. Edit `src/data/products.js`.
+2. Make the same change in the database. For an app that's already running, use SQL rather than re-running `Untitled.sql` (which wipes users and orders):
+
+   ```sh
+   # With Docker (enter DB_PASSWORD when asked); without Docker, drop "docker compose exec mysql"
+   docker compose exec mysql mysql -uroot -p farm_fresh
+   ```
+   ```sql
+   UPDATE products SET price = 219.00 WHERE id = 101;          -- change a price
+   UPDATE products SET stock_quantity = 50 WHERE id = 101;     -- restock
+   INSERT INTO products (id, name, price, original_price, weight, image_url, category_id, stock_quantity)
+   VALUES (110, 'Kiwi', 149.00, 149.00, '500g', 'https://...',
+           (SELECT id FROM categories WHERE name = 'Fruits'), 100);  -- new product
+   ```
+3. Also add the change to `Untitled.sql`, so a fresh database gets it too.
+4. Rebuild the frontend (`docker compose up -d --build`, or nothing to do with `npm start`).
+
+If the website and the database disagree, checkout charges the database price, and an `id` missing from the database makes checkout fail.
+
+**Day-of-week discounts** are in the `discount_rules` table and in `src/utils/discounts.js`. Keep those in step the same way.
+
+**Order statuses** (`PENDING`, `PROCESSING`, `SHIPPED`, `DELIVERED`, `CANCELLED`) have no admin screen yet. Change one with SQL, for example `UPDATE orders SET status = 'SHIPPED' WHERE id = 12;`.
 
 ---
 
