@@ -1,4 +1,3 @@
-import React from "react";
 import { Leaf, Truck, Users, Heart } from "lucide-react";
 
 const features = [
@@ -35,7 +34,7 @@ export default function AboutPage() {
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold mb-6">About MS Fresh Harvest</h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            We're passionate about bringing the freshest, organic produce from
+            We&apos;re passionate about bringing the freshest, organic produce from
             local farms directly to your table. Our mission is to make healthy
             eating accessible while supporting sustainable farming practices.
           </p>
@@ -67,7 +66,7 @@ export default function AboutPage() {
                 work with over 50 farmers in the region.
               </p>
               <p className="text-gray-600">
-                Today, we're proud to serve thousands of customers while
+                Today, we&apos;re proud to serve thousands of customers while
                 maintaining our commitment to quality, sustainability, and
                 supporting local agriculture.
               </p>

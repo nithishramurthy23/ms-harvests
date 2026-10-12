@@ -1,9 +1,5 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Carrot, Apple, Beef, Milk, Egg, Wheat, 
-  Cookie, Flower, Cherry, Sandwich, FlaskConical, Leaf
-} from 'lucide-react';
+import { Carrot, Apple, Milk, Egg, Cherry, Leaf } from 'lucide-react';
 
 export const categories = [
   {

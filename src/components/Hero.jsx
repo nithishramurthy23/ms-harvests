@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { getTodayDiscount, applyDiscountToList } from "../utils/discounts";
@@ -47,7 +47,7 @@ export default function Hero() {
             }}
             className="bg-green-600 text-white px-4 py-2 rounded-full shadow-md hover:bg-green-700 transition"
           >
-            🌟 Show Today's Deal
+            🌟 Show Today&apos;s Deal
           </button>
         </div>
       )}
@@ -59,7 +59,7 @@ export default function Hero() {
             From Harvest to Your Table, Fresh Every Time.
           </h1>
           <p className="text-xl text-white mb-8 max-w-2xl mx-auto">
-            Discover nature's finest selection of organic produce, delivered
+            Discover nature&apos;s finest selection of organic produce, delivered
             fresh to your doorstep.
           </p>
 

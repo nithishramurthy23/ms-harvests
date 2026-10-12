@@ -38,9 +38,10 @@ export const calculateBundleWeight = (bundleItems) => {
 
     if (weight.includes("kg")) totalGrams += parseFloat(weight) * 1000;
     else if (weight.includes("g")) totalGrams += parseFloat(weight);
+    // "ml" must be checked before "l", since "500 ml" also contains "l"
+    else if (weight.includes("ml")) totalMilliLitres += parseFloat(weight);
     else if (weight.includes("l"))
       totalMilliLitres += parseFloat(weight) * 1000;
-    else if (weight.includes("ml")) totalMilliLitres += parseFloat(weight);
     else if (weight.includes("pcs")) hasPieces = true;
   });
 

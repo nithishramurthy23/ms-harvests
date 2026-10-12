@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.pooja.farm.fresh</groupId>
+    <groupId>com.nithishramurthy.farm.fresh</groupId>
     <artifactId>farm-fresh-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>Farm Fresh Backend</name>
@@ -75,7 +75,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.30</version> <!-- or latest -->
+            <version>1.18.30</version>
             <scope>provided</scope>
         </dependency>
 
@@ -87,12 +87,6 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
 
         <!-- JWT -->
         <dependency>
@@ -113,13 +107,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <dependency>
-  <groupId>org.projectlombok</groupId>
-  <artifactId>lombok</artifactId>
-  <version>1.18.30</version> <!-- or the latest -->
-  <scope>provided</scope>
-</dependency>
-
 
         <!-- Testing -->
         <dependency>
@@ -137,6 +124,12 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- In-memory database for tests, so they run without MySQL -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -144,6 +137,26 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- Test coverage report: target/site/jacoco/index.html after mvn verify -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

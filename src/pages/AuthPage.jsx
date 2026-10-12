@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
+// Login, sign-up, OTP verification and password reset on one page; the flags
+// below decide which form is shown.
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [loginMethod, setLoginMethod] = useState(null);
@@ -22,7 +24,7 @@ export default function AuthPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const [showActivationSuccess, setShowActivationSuccess] = useState(false);
   const [failedOtpAttempts, setFailedOtpAttempts] = useState(0); // Track failed attempts
-  const [maxOtpAttempts, setMaxOtpAttempts] = useState(2); // Maximum retries allowed
+  const maxOtpAttempts = 2; // Maximum retries allowed
 
   const navigate = useNavigate();
   const {
@@ -90,6 +92,7 @@ export default function AuthPage() {
     return pattern.test(password);
   };
 
+  // Submits whichever form is showing: forgot password, sign-up or password login.
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -126,6 +129,7 @@ export default function AuthPage() {
     }
   };
 
+  // Sets a new password with the reset OTP.
   const handleResetPasswordSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -157,6 +161,7 @@ export default function AuthPage() {
     }
   };
 
+  // Checks the OTP the user typed in (activation or login).
   const handleVerifyOtpSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -199,6 +204,7 @@ export default function AuthPage() {
     }
   };
 
+  // Passwordless login: email the user a one-time code.
   const handleSendOtpForLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -220,6 +226,7 @@ export default function AuthPage() {
     }
   };
 
+  // Sends a new code once the resend timer runs out.
   const handleResendOtp = async () => {
     setError(null);
     setMessage(null);
@@ -419,7 +426,7 @@ export default function AuthPage() {
               {loading ? "Verifying..." : "Verify OTP"}
             </button>
             <p className="text-center text-sm">
-              Didn't receive OTP?{" "}
+              Didn&apos;t receive OTP?{" "}
               <button
                 type="button"
                 onClick={handleResendOtp}

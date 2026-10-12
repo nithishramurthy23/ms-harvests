@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useReducer } from "react";
+import { createContext, useContext, useReducer } from "react";
 
-// Cart Item Interface definition
+// Shopping cart shared by all pages. It lives in the browser only; the server
+// sees the items for the first time at checkout.
 const CartContext = createContext(null);
 
-// Cart reducer to manage cart actions
+// Every cart change goes through this reducer, which also keeps the running total.
 const cartReducer = (state, action) => {
   switch (action.type) {
     case "ADD_ITEM": {
@@ -27,7 +28,7 @@ const cartReducer = (state, action) => {
         total: state.total + action.payload.price,
       };
     }
-    case "REMOVE_ITEM":
+    case "REMOVE_ITEM": {
       const itemToRemove = state.items.find(
         (item) => item.id === action.payload
       );
@@ -38,6 +39,7 @@ const cartReducer = (state, action) => {
           state.total -
           (itemToRemove ? itemToRemove.price * itemToRemove.quantity : 0),
       };
+    }
     case "UPDATE_QUANTITY": {
       const item = state.items.find((item) => item.id === action.payload.id);
       if (!item) return state;

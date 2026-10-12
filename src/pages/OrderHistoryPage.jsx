@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../api/axiosInstance";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Package, Truck, CheckCircle, XCircle } from "lucide-react"; // Icons for status
 
+// Lists the logged-in user's past orders.
 export default function OrderHistoryPage() {
-  const { user, token, isAuthenticated, logout } = useAuth();
+  const { token, isAuthenticated, logout } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -90,7 +91,7 @@ export default function OrderHistoryPage() {
     return (
       <div className="py-24 px-4 text-center">
         <h1 className="text-2xl font-bold text-gray-900">No Orders Found</h1>
-        <p className="text-gray-600">You haven't placed any orders yet.</p>
+        <p className="text-gray-600">You haven&apos;t placed any orders yet.</p>
         <button
           onClick={() => navigate("/products")}
           className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"

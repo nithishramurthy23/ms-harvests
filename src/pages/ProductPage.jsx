@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ShoppingCart, ArrowLeft, Plus, Minus } from "lucide-react";
 import { categoryProducts } from "../data/products";
@@ -10,6 +10,7 @@ import {
 } from "../utils/bundleUtils";
 import { getTodayDiscount } from "../utils/discounts";
 
+// Detail page for one product or bundle, with today's discount applied.
 export default function ProductPage() {
   const { productId } = useParams();
   const navigate = useNavigate();
