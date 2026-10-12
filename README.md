@@ -322,4 +322,4 @@ ms-harvests/
 
 ## Before putting this online
 
-This setup is for running the app on your own computer. Before real customers use it, serve it over HTTPS, use fresh secrets that have never been shared, and set up regular database backups.
+This setup is for running the app on your own computer. To put it on a server with a domain, HTTPS and daily database backups, follow [docs/deployment.md](docs/deployment.md). Use fresh secrets that have never been shared.
