@@ -139,8 +139,11 @@ public class AuthService {
     }
     
     // New method to verify OTP and log in a new user in a single step
-    /** Checks the activation OTP, enables the account and logs the user in. */
-    @Transactional
+    /**
+     * Checks the activation OTP, enables the account and logs the user in.
+     * Not one transaction on purpose: a failed OTP check must stay counted
+     * when we throw (see OrderService.placeOrder).
+     */
     public AuthResponse verifyAndLogin(String email, String otp) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
@@ -177,8 +180,13 @@ public class AuthService {
     }
 
     /** Checks the reset OTP and the new password's strength, then stores the new hash. */
-    @Transactional
+    // Not one transaction on purpose: a failed OTP check must stay counted when we throw.
+    // The password rule is checked first, so a weak password doesn't use up the OTP.
     public void resetPassword(String email, String otp, String newPassword) {
+        if (!isStrongPassword(newPassword)) {
+            throw new IllegalArgumentException("Password must contain at least 8 characters, including one uppercase, one lowercase, one digit, and one special character.");
+        }
+
         boolean isValidOtp = otpService.validateOtp(email, otp);
         if (!isValidOtp) {
             throw new IllegalArgumentException("Invalid or expired OTP for password reset.");
@@ -186,10 +194,6 @@ public class AuthService {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User with email " + email + " not found."));
-
-        if (!isStrongPassword(newPassword)) {
-            throw new IllegalArgumentException("Password must contain at least 8 characters, including one uppercase, one lowercase, one digit, and one special character.");
-        }
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);

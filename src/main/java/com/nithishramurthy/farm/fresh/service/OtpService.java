@@ -49,6 +49,7 @@ public class OtpService {
 
         user.setOtpCode(otp);
         user.setOtpExpiry(expiryTime);
+        user.setFailedAttempts(0); // a new code gets a fresh set of attempts
         userRepository.save(user);
 
         String mailBody = String.format("Dear %s,\n\nYour One-Time Password (OTP) for %s is: %s\n\nThis OTP is valid for 5 minutes.\n\nDo not share this OTP with anyone.\n\nThank you,\nFarm Fresh Team", user.getName(), purpose, otp);
@@ -84,7 +85,7 @@ public class OtpService {
 
         // Check if maximum attempts are exceeded
         if (user.getFailedAttempts() >= 2) {
-            throw new IllegalArgumentException("Maximum OTP attempts (2) exceeded. Please try registering again.");
+            throw new IllegalArgumentException("Maximum OTP attempts (2) exceeded. Please request a new OTP.");
         }
 
         // Validate OTP

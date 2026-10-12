@@ -19,6 +19,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -145,6 +146,60 @@ class OrderFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("email", EMAIL, "password", "WrongPass1!"))))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // A wrong guess must burn the code, even though the order itself is rejected.
+    // Otherwise the 6-digit code could be guessed with unlimited tries.
+    @Test
+    void wrongOrderOtpIsCountedAndBurnsTheCode() throws Exception {
+        String token = registerAndVerify();
+        requestOrderOtp(token);
+        String realOtp = currentOtp();
+
+        placeOrder(token, wrongOtp(realOtp)).andExpect(status().isBadRequest());
+        placeOrder(token, realOtp).andExpect(status().isBadRequest());
+
+        assertThat(userRepository.findByEmail(EMAIL).orElseThrow().getFailedAttempts()).isEqualTo(2);
+        assertThat(orderRepository.count()).isZero();
+
+        // a fresh code works again
+        requestOrderOtp(token);
+        placeOrder(token, currentOtp()).andExpect(status().isCreated());
+    }
+
+    @Test
+    void wrongPasswordResetOtpBurnsTheCode() throws Exception {
+        registerAndVerify();
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("email", EMAIL))))
+                .andExpect(status().isOk());
+        String realOtp = currentOtp();
+
+        resetPassword(wrongOtp(realOtp)).andExpect(status().isBadRequest());
+        resetPassword(realOtp).andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("email", EMAIL, "password", "NewSecret456!"))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private ResultActions placeOrder(String token, String otp) throws Exception {
+        return mockMvc.perform(post("/api/orders/place-order")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(orderBody("cod", otp, 1, null))));
+    }
+
+    private ResultActions resetPassword(String otp) throws Exception {
+        return mockMvc.perform(post("/api/auth/reset-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("email", EMAIL, "otp", otp, "newPassword", "NewSecret456!"))));
+    }
+
+    private static String wrongOtp(String otp) {
+        return otp.equals("000000") ? "111111" : "000000";
     }
 
     private String registerAndVerify() throws Exception {

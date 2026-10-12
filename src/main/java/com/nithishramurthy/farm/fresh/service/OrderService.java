@@ -18,7 +18,9 @@ import com.nithishramurthy.farm.fresh.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,11 +37,12 @@ public class OrderService {
     private final OtpService otpService;
     private final MailService mailService;
     private final ProductService productService;
+    private final TransactionTemplate transactionTemplate;
 
     public OrderService(OrderRepository orderRepository, UserRepository userRepository,
                         ProductRepository productRepository, OrderItemRepository orderItemRepository,
                         OtpService otpService, MailService mailService,
-                        ProductService productService) {
+                        ProductService productService, PlatformTransactionManager transactionManager) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
@@ -47,6 +50,7 @@ public class OrderService {
         this.otpService = otpService;
         this.mailService = mailService;
         this.productService = productService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     /** Emails the order confirmation OTP. */
@@ -59,10 +63,13 @@ public class OrderService {
     }
 
     /**
-     * Places an order for the logged-in user. Runs in one transaction: if anything
-     * fails (bad OTP, not enough stock), nothing is saved and reserved stock is released.
+     * Places an order for the logged-in user.
+     *
+     * The OTP check is deliberately outside the order transaction: a wrong guess
+     * must stay counted (and the code burned) even though the order is rejected.
+     * If it were inside, the rollback would undo the counter and the 6-digit code
+     * could be guessed with unlimited tries.
      */
-    @Transactional
     public OrderResponse placeOrder(OrderRequest orderRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userEmail = authentication.getName();
@@ -79,11 +86,35 @@ public class OrderService {
             throw new IllegalArgumentException("Order confirmation OTP is required.");
         }
 
+        // Commits on its own, whatever happens to the order below.
         boolean isOtpValid = otpService.validateOtp(user.getEmail(), orderRequest.getOrderConfirmationOtp());
         if (!isOtpValid) {
             throw new IllegalArgumentException("Invalid or expired OTP for order confirmation.");
         }
 
+        Order savedOrder = transactionTemplate.execute(status -> createOrder(user, orderRequest));
+
+        try {
+            mailService.sendOrderConfirmationEmail(savedOrder, user.getEmail(), user.getName());
+        } catch (Exception e) {
+            System.err.println("Failed to send order confirmation email for order " + savedOrder.getId() + ": " + e.getMessage());
+        }
+
+        return new OrderResponse(
+                savedOrder.getId(),
+                savedOrder.getStatus().name(),
+                savedOrder.getTotalAmount(),
+                savedOrder.getOrderDate(),
+                "Order placed successfully!"
+        );
+    }
+
+    /**
+     * Reserves stock and saves the order with its items. Runs in one transaction:
+     * if any item fails (unknown product, not enough stock), nothing is saved and
+     * stock reserved for earlier items is released.
+     */
+    private Order createOrder(User user, OrderRequest orderRequest) {
         Order order = new Order();
         order.setUser(user);
         order.setOrderDate(LocalDateTime.now());
@@ -110,7 +141,7 @@ public class OrderService {
             }
 
             // Reserve stock with a single conditional UPDATE. If the order fails later,
-            // the surrounding transaction rolls this back.
+            // the transaction rolls this back.
             if (productRepository.decrementStock(product.getId(), itemDto.getQuantity()) == 0) {
                 throw new IllegalArgumentException("Not enough stock for product: " + product.getName());
             }
@@ -139,20 +170,7 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
         orderItemRepository.saveAll(savedOrder.getOrderItems());
-
-        try {
-            mailService.sendOrderConfirmationEmail(savedOrder, user.getEmail(), user.getName());
-        } catch (Exception e) {
-            System.err.println("Failed to send order confirmation email for order " + savedOrder.getId() + ": " + e.getMessage());
-        }
-
-        return new OrderResponse(
-                savedOrder.getId(),
-                savedOrder.getStatus().name(),
-                savedOrder.getTotalAmount(),
-                savedOrder.getOrderDate(),
-                "Order placed successfully!"
-        );
+        return savedOrder;
     }
 
     @Transactional(readOnly = true)
