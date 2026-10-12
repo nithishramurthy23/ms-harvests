@@ -31,7 +31,7 @@ export default function ProfilePage() {
         setError(err.response?.data?.message || "Failed to load profile");
         if (err.response?.status === 401) {
           logout();
-          navigate("/login");
+          navigate("/auth");
         }
       } finally {
         setLoading(false);
@@ -47,7 +47,7 @@ export default function ProfilePage() {
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
           <p className="text-yellow-700">Please log in to view your profile.</p>
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/auth")}
             className="mt-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
           >
             Go to Login
@@ -57,7 +57,8 @@ export default function ProfilePage() {
     );
   }
 
-  if (loading) {
+  // The token can arrive after the first render, so wait for the profile too.
+  if (loading || (!profile && !error)) {
     return (
       <div className="max-w-2xl mx-auto mt-10 p-6 text-center">
         <div className="animate-pulse space-y-4">
@@ -138,14 +139,8 @@ export default function ProfilePage() {
                 <h4 className="font-semibold text-gray-700 mb-2">
                   Account Details
                 </h4>
-                {/* Assuming profile has createdAt and updatedAt fields */}
                 <p className="text-gray-600">
-                  <span className="font-medium">Member since:</span>{" "}
-                  {new Date(profile.createdAt).toLocaleDateString()}
-                </p>
-                <p className="text-gray-600">
-                  <span className="font-medium">Last updated:</span>{" "}
-                  {new Date(profile.updatedAt).toLocaleDateString()}
+                  <span className="font-medium">Email:</span> {profile.email}
                 </p>
               </div>
             </div>
@@ -154,7 +149,7 @@ export default function ProfilePage() {
           <div className="mt-8 flex space-x-4">
             <button
               onClick={() => navigate("/profile/edit")}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+              className="btn-primary px-5 py-2"
             >
               Edit Profile
             </button>

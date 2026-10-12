@@ -1,79 +1,61 @@
-import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { Banknote, PackageCheck, ShoppingBasket } from "lucide-react";
 import Hero from "../components/Hero";
 import Categories from "../components/Categories";
 import FeaturedProducts from "../components/FeaturedProducts";
-import { useAuth } from "../context/AuthContext"; // Import useAuth
-import { API_BASE_URL } from "../api/axiosInstance";
+
+const steps = [
+  {
+    icon: ShoppingBasket,
+    title: "Fill your basket",
+    text: "Pick by the kilo or the bunch, or choose a ready-made weekly basket.",
+  },
+  {
+    icon: PackageCheck,
+    title: "We pack it in Ooty",
+    text: "Your order is packed fresh and confirmed with a one-time code sent to your email.",
+  },
+  {
+    icon: Banknote,
+    title: "Pay when it arrives",
+    text: "Cash on delivery. No cards, no wallets, nothing to pay up front.",
+  },
+];
 
 export default function HomePage() {
-  const [backendMessage, setBackendMessage] = useState("");
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth(); // Get user from auth context
-
-  useEffect(() => {
-    // Function to fetch data from the backend
-    const fetchBackendMessage = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/status`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.text(); // Use .text() because HomeController returns a String
-        setBackendMessage(data);
-      } catch (error) {
-        console.error("Error fetching backend message:", error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBackendMessage();
-  }, []); // The empty array ensures this effect runs only once after the initial render
-
   return (
     <>
       <Hero />
-
-      {/* Conditional Welcome Message for logged-in users */}
-      {user && (
-        <section className="py-8 px-4 text-center bg-gray-50">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome, {user.name}!
-          </h2>
-          {/* Change to a link that redirects to the categories section */}
-          <a
-            href="#categories"
-            className="text-xl text-green-600 hover:underline"
-          >
-            Check out our fresh products below.
-          </a>
-        </section>
-      )}
-
-      {/* Add an id to the Categories component's container to enable scrolling */}
-      <div id="categories">
-        <Categories />
-      </div>
+      <Categories />
       <FeaturedProducts />
 
-      <section
-        style={{
-          padding: "20px",
-          textAlign: "center",
-          marginTop: "40px",
-          borderTop: "1px solid #eee",
-        }}
-      >
-        <h2>Backend Status</h2>
-        {loading && <p>Loading message from backend...</p>}
-        {error && <p style={{ color: "red" }}>Error: {error}</p>}
-        {!loading && !error && (
-          <p>
-            <strong>Message from Backend:</strong> {backendMessage}
-          </p>
-        )}
+      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <h2 className="mb-8 text-2xl text-green-900 sm:text-3xl">How ordering works</h2>
+        <ol className="grid gap-6 md:grid-cols-3">
+          {steps.map(({ icon: Icon, title, text }, i) => (
+            <li key={title} className="flex gap-4">
+              <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-mustard-100 text-clay-600">
+                <Icon className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-bold text-bark/40">Step {i + 1}</p>
+                <h3 className="font-sans text-lg font-medium">{title}</h3>
+                <p className="mt-1 text-bark/65">{text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="mx-auto mb-16 max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="rounded-[2rem] bg-green-800 px-6 py-12 text-center text-green-50 sm:px-12">
+          <h2 className="mx-auto max-w-2xl text-3xl font-medium text-white sm:text-4xl">
+            A small shop in Anikorai village, selling what the hills grow.
+          </h2>
+          <Link to="/about" className="mt-6 inline-block font-medium text-mustard-400 underline-offset-4 hover:underline">
+            Read our story
+          </Link>
+        </div>
       </section>
     </>
   );

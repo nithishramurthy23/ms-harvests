@@ -1,214 +1,146 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ShoppingCart, ArrowLeft, Plus, Minus } from "lucide-react";
-import { categoryProducts } from "../data/products";
+import { Link, useParams } from "react-router-dom";
+import { Banknote, ChevronRight, Minus, Plus } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import { bundles } from "../data/bundles";
-import {
-  calculateBundlePrice,
-  calculateBundleWeight,
-} from "../utils/bundleUtils";
-import { getTodayDiscount } from "../utils/discounts";
+import { categoryName, findItem, getCategory, pricedProducts } from "../data/catalog";
+import ProductImage from "../components/ProductImage";
+import ProductCard from "../components/ProductCard";
+import Price from "../components/Price";
+import NotFoundPage from "./NotFoundPage";
 
-// Detail page for one product or bundle, with today's discount applied.
+// Detail page for one product or basket, with today's offer applied.
 export default function ProductPage() {
   const { productId } = useParams();
-  const navigate = useNavigate();
-  const { dispatch } = useCart();
+  const { dispatch, quantityOf, openCart } = useCart();
   const [quantity, setQuantity] = useState(1);
 
-  const todayDiscount = getTodayDiscount();
-  const discountCategory = todayDiscount?.category;
-  const discountPercent = todayDiscount?.percent || 0;
+  const item = findItem(Number(productId));
+  if (!item) return <NotFoundPage />;
 
-  const allProducts = [...Object.values(categoryProducts).flat(), ...bundles];
-  const product = allProducts.find((p) => p.id === Number(productId));
-
-  if (!product) {
-    return (
-      <div className="py-24 px-4 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Product not found</h1>
-      </div>
-    );
-  }
-
-  const isBundle = product.bundleItems && product.bundleItems.length > 0;
-
-  const discountedPrice =
-    !isBundle && product.category?.toLowerCase() === discountCategory
-      ? Math.round(product.price - (product.price * discountPercent) / 100)
-      : null;
-
-  const effectivePrice = isBundle
-    ? calculateBundlePrice(
-        product.bundleItems,
-        discountCategory,
-        discountPercent
-      )
-    : discountedPrice || product.price;
-
-  const displayWeight = isBundle
-    ? calculateBundleWeight(product.bundleItems)
-    : product.weight;
-
-  const totalPrice = effectivePrice * quantity;
-
-  const bundledProducts = isBundle
-    ? product.bundleItems
-        .map((id) => allProducts.find((p) => p.id === id))
-        .filter(Boolean)
+  const aisle = getCategory(item.category);
+  const products = pricedProducts();
+  const contents = item.isBundle
+    ? item.bundleItems.map((id) => products.find((p) => p.id === id)).filter(Boolean)
     : [];
+  const related = products
+    .filter((p) => p.category === item.category && p.id !== item.id && !contents.includes(p))
+    .slice(0, 4);
+  const inCart = quantityOf(item.id);
 
   const handleAddToCart = () => {
-    dispatch({
-      type: "ADD_ITEM",
-      payload: {
-        ...product,
-        isBundle,
-        price: effectivePrice,
-        quantity,
-      },
-    });
+    dispatch({ type: "ADD_ITEM", payload: { ...item, quantity } });
+    setQuantity(1);
+    openCart();
   };
 
   return (
-    <div className="py-24 px-4">
-      <div className="max-w-7xl mx-auto">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-green-600 hover:text-green-700 mb-8"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Back
-        </button>
+    <div className="page">
+      <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-1 text-sm text-bark/55">
+        <Link to="/products" className="hover:text-green-700">
+          Shop
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <Link to={`/category/${item.category}`} className="hover:text-green-700">
+          {categoryName(item.category)}
+        </Link>
+        <ChevronRight className="h-4 w-4" />
+        <span className="truncate text-bark/80">{item.name}</span>
+      </nav>
 
-        <div className="grid md:grid-cols-2 gap-12">
-          <div className="aspect-square overflow-hidden rounded-lg shadow-lg">
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-            />
+      <div className="grid gap-8 md:grid-cols-2 lg:gap-14">
+        <ProductImage src={item.image} alt={item.name} className="aspect-square w-full rounded-[2rem]" />
+
+        <div>
+          <p className="eyebrow mb-3">{item.isBundle ? "Weekly basket" : categoryName(item.category)}</p>
+          <h1 className="text-4xl font-medium leading-tight text-green-900 sm:text-5xl">{item.name}</h1>
+          <p className="mt-2 text-bark/60">{item.weight}</p>
+
+          <div className="mt-6 flex items-center gap-3">
+            <Price price={item.price} mrp={item.mrp} className="text-3xl" />
+            {item.mrp && (
+              <span className="rounded-full bg-clay-100 px-3 py-1 text-sm font-medium text-clay-600">
+                Today&apos;s offer
+              </span>
+            )}
           </div>
 
-          <div className="space-y-8">
-            <div>
-              <h1 className="text-4xl font-bold mb-4">{product.name}</h1>
-              <div className="flex items-baseline gap-2 mb-4">
-                <div className="text-3xl font-bold">
-                  {discountedPrice && !isBundle ? (
-                    <div className="flex items-center gap-3">
-                      <span className="text-gray-500 line-through">
-                        ₹{product.price}
-                      </span>
-                      <span className="text-green-600">₹{discountedPrice}</span>
-                    </div>
-                  ) : (
-                    <span className="text-green-600">₹{effectivePrice}</span>
-                  )}
-                </div>
+          <p className="mt-6 text-lg leading-relaxed text-bark/75">{item.blurb ?? aisle?.about}</p>
 
-                {quantity > 1 && (
-                  <span className="text-gray-500 text-sm">
-                    ({quantity} × ₹{effectivePrice})
-                  </span>
-                )}
-              </div>
-              <p className="text-gray-600 text-lg mb-2">
-                Weight: {displayWeight}
-              </p>
-            </div>
-
-            <div className="border-t border-b py-6">
-              <h2 className="text-xl font-semibold mb-4">
-                Product Description
-              </h2>
-              <p className="text-gray-600 leading-relaxed">
-                {isBundle ? (
-                  <>
-                    Our <strong>{product.name}</strong> includes a curated
-                    selection of fresh, high-quality items sourced from trusted
-                    local farms. This bundle offers great value and variety for
-                    your daily meals.
-                  </>
-                ) : (
-                  <>
-                    Our <strong>{product.name}</strong> is carefully selected
-                    from local farms to ensure the highest quality. Each product
-                    undergoes strict quality control to maintain freshness and
-                    nutritional value. Perfect for your daily cooking needs and
-                    healthy lifestyle.
-                  </>
-                )}
-              </p>
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <span className="text-lg font-medium">Quantity:</span>
-                <div className="flex items-center gap-4 border rounded-lg p-2">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="p-1 hover:bg-gray-100 rounded-full"
-                  >
-                    <Minus className="w-5 h-5" />
-                  </button>
-                  <span className="w-12 text-center text-lg">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="p-1 hover:bg-gray-100 rounded-full"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="flex h-12 items-center rounded-full border border-bark/15 bg-paper">
               <button
-                onClick={handleAddToCart}
-                className="w-full bg-green-600 text-white py-4 rounded-lg hover:bg-green-700 flex items-center justify-center gap-3 text-lg font-medium"
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                aria-label="Decrease quantity"
+                className="flex h-full w-12 items-center justify-center rounded-full hover:bg-bark/5"
               >
-                <ShoppingCart className="w-6 h-6" />
-                Add to Cart (₹{totalPrice})
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-8 text-center font-medium tabular-nums">{quantity}</span>
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                aria-label="Increase quantity"
+                className="flex h-full w-12 items-center justify-center rounded-full hover:bg-bark/5"
+              >
+                <Plus className="h-4 w-4" />
               </button>
             </div>
+            <button onClick={handleAddToCart} className="btn-primary h-12 flex-1 sm:flex-none sm:px-10">
+              Add to basket · ₹{item.price * quantity}
+            </button>
+          </div>
+          {inCart > 0 && <p className="mt-3 text-sm text-green-700">{inCart} already in your basket.</p>}
 
-            <div className="bg-green-50 p-6 rounded-lg">
-              <h3 className="font-semibold mb-2">Product Features:</h3>
-              <ul className="list-disc list-inside space-y-2 text-gray-600">
-                <li>100% Organic</li>
-                <li>Locally Sourced</li>
-                <li>Fresh Harvest</li>
-                <li>Quality Guaranteed</li>
-              </ul>
-            </div>
+          <div className="mt-8 space-y-4 rounded-2xl bg-paper p-5 ring-1 ring-bark/10">
+            <p className="flex items-start gap-3 text-sm text-bark/75">
+              <Banknote className="mt-0.5 h-5 w-5 flex-none text-green-700" />
+              Cash on delivery. You pay when the order reaches you.
+            </p>
+            {aisle?.tips?.length > 0 && (
+              <div>
+                <p className="mb-1 text-sm font-medium">Keeping it fresh</p>
+                <ul className="list-disc space-y-1 pl-5 text-sm text-bark/70">
+                  {aisle.tips.map((tip) => (
+                    <li key={tip}>{tip}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
-
-        {isBundle && bundledProducts.length > 0 && (
-          <div className="max-w-7xl mx-auto mt-12">
-            <h2 className="text-2xl font-semibold mb-6">
-              Included in this Bundle:
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {bundledProducts.map((item) => (
-                <div
-                  key={item.id}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-full h-32 object-cover rounded-md mb-2"
-                  />
-                  <h3 className="font-medium">{item.name}</h3>
-                  <p className="text-sm text-gray-600">{item.weight}</p>
-                  <p className="text-green-600 font-medium">₹{item.price}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
+
+      {contents.length > 0 && (
+        <section className="mt-16">
+          <h2 className="mb-6 text-2xl text-green-900">What&apos;s in the basket</h2>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {contents.map((p) => (
+              <li key={p.id}>
+                <Link
+                  to={`/product/${p.id}`}
+                  className="flex items-center gap-3 rounded-2xl border border-bark/10 bg-paper p-3 hover:border-green-600"
+                >
+                  <ProductImage src={p.image} alt="" className="h-14 w-14 flex-none rounded-xl" />
+                  <span className="flex-1">
+                    <span className="block font-medium leading-snug">{p.name}</span>
+                    <span className="text-sm text-bark/55">{p.weight}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {related.length > 0 && (
+        <section className="mt-16">
+          <h2 className="mb-6 text-2xl text-green-900">More from {categoryName(item.category).toLowerCase()}</h2>
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+            {related.map((p) => (
+              <ProductCard key={p.id} item={p} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

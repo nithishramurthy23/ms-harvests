@@ -1,119 +1,62 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
-import { getTodayDiscount, applyDiscountToList } from "../utils/discounts";
-import { categoryProducts } from "../data/products";
+import { Link } from "react-router-dom";
+import { getTodayDiscount } from "../utils/discounts";
+import { categoryName } from "../data/catalog";
+import { useAuth } from "../context/AuthContext";
+import ProductImage from "./ProductImage";
+
+const HERO_IMAGE = "https://im.hunt.in/cg/Ooty/City-Guide/Carrot-Farming-in-Ooty.jpg";
 
 export default function Hero() {
-  const navigate = useNavigate();
-  const [showOffer, setShowOffer] = useState(true);
-  const [minimized, setMinimized] = useState(false);
-  const [highlightProduct, setHighlightProduct] = useState(null);
-
-  useEffect(() => {
-    const todayDiscount = getTodayDiscount();
-    if (!todayDiscount) return;
-
-    const discountedProducts = applyDiscountToList(
-      categoryProducts[todayDiscount.category] || []
-    );
-    if (discountedProducts.length > 0) {
-      setHighlightProduct(discountedProducts[0]); // You could randomize or cycle here
-    }
-  }, []);
+  const { user } = useAuth();
+  const offer = getTodayDiscount();
 
   return (
-    <div className="relative h-[600px] flex items-center justify-center">
-      {/* 🌄 Background */}
-      <div
-        className="absolute inset-0 z-0"
-        style={{
-          backgroundImage:
-            'url("https://im.hunt.in/cg/Ooty/City-Guide/Carrot-Farming-in-Ooty.jpg")',
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <div className="absolute inset-0 bg-black opacity-40"></div>
+    <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-12 pt-8 sm:px-6 md:grid-cols-[1.05fr_1fr] md:pt-14 lg:px-8">
+      <div>
+        <p className="eyebrow mb-4">
+          {user ? `Welcome back, ${user.name?.split(" ")[0]}` : "From the Nilgiris hills"}
+        </p>
+        <h1 className="text-[2.6rem] font-medium leading-[1.05] text-green-900 sm:text-5xl lg:text-[4rem]">
+          Vegetables, fruit and dairy from farms around Ooty.
+        </h1>
+        <p className="mt-5 max-w-lg text-lg text-bark/70">
+          Buy by the kilo or pick a weekly basket. We pack your order in Ooty and you pay cash
+          when it reaches your door.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link to="/products" className="btn-primary">
+            Shop the harvest
+          </Link>
+          <Link to="/products#baskets" className="btn-ghost">
+            Weekly baskets
+          </Link>
+        </div>
       </div>
 
-      {/* 🧾 Minimized Button */}
-      {minimized && (
-        <div className="absolute bottom-4 left-4 z-20">
-          <button
-            onClick={() => {
-              setShowOffer(true);
-              setMinimized(false);
-            }}
-            className="bg-green-600 text-white px-4 py-2 rounded-full shadow-md hover:bg-green-700 transition"
+      <div className="relative">
+        <ProductImage
+          src={HERO_IMAGE}
+          alt="Carrot fields on a hillside near Ooty"
+          className="aspect-[4/3] w-full rounded-[2rem] md:aspect-[5/6] lg:aspect-[4/3]"
+        />
+        {offer && (
+          <Link
+            to={`/category/${offer.category}`}
+            className="absolute -bottom-5 left-4 right-4 flex items-center gap-4 rounded-2xl bg-paper p-4 shadow-xl ring-1 ring-bark/5 transition-transform hover:-translate-y-0.5 sm:left-6 sm:right-auto"
           >
-            🌟 Show Today&apos;s Deal
-          </button>
-        </div>
-      )}
-
-      {/* 💬 Offer Card */}
-      {showOffer && highlightProduct && (
-        <div className="relative z-10 text-center px-4">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-            From Harvest to Your Table, Fresh Every Time.
-          </h1>
-          <p className="text-xl text-white mb-8 max-w-2xl mx-auto">
-            Discover nature&apos;s finest selection of organic produce, delivered
-            fresh to your doorstep.
-          </p>
-
-          <div className="relative bg-white p-4 rounded-lg shadow-md max-w-sm mx-auto mb-6">
-            {/* ❌ Close Button */}
-            <button
-              onClick={() => {
-                setShowOffer(false);
-                setMinimized(true);
-              }}
-              className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
-              aria-label="Close"
-            >
-              <X size={16} />
-            </button>
-
-            <div className="text-sm text-red-600 font-semibold mb-1">
-              🔥 {highlightProduct.name} Discount!
-            </div>
-            <div className="flex items-center gap-2">
-              <img
-                src={highlightProduct.image}
-                alt={highlightProduct.name}
-                className="w-16 h-16 object-cover rounded"
-              />
-              <div>
-                <p className="text-gray-700 font-semibold">
-                  {highlightProduct.name}
-                </p>
-                <p className="text-gray-500 line-through">
-                  ₹{highlightProduct.price}
-                </p>
-                <p className="text-green-600 font-bold">
-                  ₹{highlightProduct.offerPrice}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate(`/product/${highlightProduct.id}`)}
-              className="mt-4 w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition-colors text-sm"
-            >
-              Buy Now
-            </button>
-          </div>
-
-          {/* 🛍️ Shop Now Button */}
-          <button
-            onClick={() => navigate("/products")}
-            className="bg-green-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-green-700 transition-colors"
-          >
-            Shop Now
-          </button>
-        </div>
-      )}
-    </div>
+            <span className="flex h-14 w-14 flex-none flex-col items-center justify-center rounded-full bg-clay-500 font-bold leading-none text-white">
+              <span className="text-lg">{offer.percent}%</span>
+              <span className="text-[10px] uppercase">off</span>
+            </span>
+            <span>
+              <span className="block text-xs uppercase tracking-wider text-bark/50">Today only</span>
+              <span className="block font-medium">
+                {offer.percent}% off all {categoryName(offer.category).toLowerCase()}
+              </span>
+            </span>
+          </Link>
+        )}
+      </div>
+    </section>
   );
 }

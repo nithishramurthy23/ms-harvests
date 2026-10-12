@@ -140,7 +140,7 @@ export default function ContactPage() {
                 <span className="mr-2">📧</span>
                 <a
                   href="mailto:msharvests@gmail.com"
-                  className="hover:text-blue-600"
+                  className="hover:text-green-700"
                 >
                   msharvests@gmail.com
                 </a>

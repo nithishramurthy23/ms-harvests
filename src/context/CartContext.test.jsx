@@ -86,3 +86,38 @@ describe("CartContext", () => {
     console.error.mockRestore();
   });
 });
+
+describe("CartContext persistence", () => {
+  it("adds the requested quantity in one go", () => {
+    const { result } = renderCart();
+
+    act(() => {
+      result.current.dispatch({ type: "ADD_ITEM", payload: { ...plums, quantity: 3 } });
+    });
+
+    expect(result.current.state.items[0].quantity).toBe(3);
+    expect(result.current.state.total).toBe(597);
+    expect(result.current.itemCount).toBe(3);
+  });
+
+  it("keeps the cart after a reload", () => {
+    const first = renderCart();
+    act(() => {
+      first.result.current.dispatch({ type: "ADD_ITEM", payload: bananas });
+    });
+    first.unmount();
+
+    const { result } = renderCart();
+
+    expect(result.current.state.items.map((item) => item.id)).toEqual([102]);
+    expect(result.current.quantityOf(102)).toBe(1);
+  });
+
+  it("starts empty when the saved cart is unreadable", () => {
+    localStorage.setItem("cart", "{not json");
+
+    const { result } = renderCart();
+
+    expect(result.current.state).toEqual({ items: [], total: 0 });
+  });
+});

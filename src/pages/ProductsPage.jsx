@@ -1,177 +1,140 @@
-// src/pages/ProductsPage.js
-import { ShoppingCart } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useCart } from "../context/CartContext";
-import { categoryProducts } from "../data/products";
-import { getTodayDiscount } from "../utils/discounts";
-import {
-  calculateBundlePrice,
-  calculateBundleWeight,
-} from "../utils/bundleUtils";
+import { Link, useSearchParams } from "react-router-dom";
+import { X } from "lucide-react";
+import ProductCard from "../components/ProductCard";
+import { categories, categoryName, getCategory, pricedBundles, pricedProducts } from "../data/catalog";
 
-// Flattened product list for lookup
-const allProducts = Object.values(categoryProducts).flat();
+const sorts = {
+  popular: { label: "Popular", compare: () => 0 },
+  "price-asc": { label: "Price: low to high", compare: (a, b) => a.price - b.price },
+  "price-desc": { label: "Price: high to low", compare: (a, b) => b.price - a.price },
+  name: { label: "Name", compare: (a, b) => a.name.localeCompare(b.name) },
+};
 
-// Get today's discount info
-const todayDiscount = getTodayDiscount();
-const discountCategory = todayDiscount?.category;
-const discountPercent = todayDiscount?.percent || 0;
+// The shop: every product, filterable by aisle and search text. Also used for
+// /category/:slug, which passes the aisle in.
+export default function ProductsPage({ category: fixedCategory }) {
+  const [params, setParams] = useSearchParams();
+  const query = params.get("q")?.trim() ?? "";
+  const sortKey = sorts[params.get("sort")] ? params.get("sort") : "popular";
+  const activeCategory = fixedCategory ?? params.get("aisle") ?? "";
+  const aisle = getCategory(activeCategory);
 
-// Define bundle list
-export const bundles = [
-  {
-    id: 1,
-    name: "Organic Vegetables Bundle",
-    image:
-      "https://thumbs.dreamstime.com/b/selection-includes-carrot-potato-cucumber-tomato-cabbage-lettuce-beetroot-onion-garlic-radish-dill-parsley-group-fresh-raw-243748746.jpg",
-    category: "vegetables",
-    bundleItems: [201, 202, 203, 204, 205, 206, 207, 208],
-  },
-  {
-    id: 2,
-    name: "Fresh Fruits Package",
-    image:
-      "https://static.vecteezy.com/system/resources/previews/000/737/013/large_2x/fruits-mango-lemon-plum-grape-pear-orange-apple-banana-strawberry-photo.jpg",
-    category: "fruits",
-    bundleItems: [101, 102, 103, 104, 105, 106, 108],
-  },
-  {
-    id: 3,
-    name: "Farm Fresh Eggs",
-    image:
-      "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?ixlib=rb-4.0.3",
-    category: "eggs",
-    bundleItems: [801, 802, 803, 804],
-  },
-  {
-    id: 4,
-    name: "Organic Honey",
-    image: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62",
-    category: "honey-&-jams",
-    bundleItems: [1101, 1102, 1103, 1104, 1105],
-  },
-  {
-    id: 5,
-    name: "Fresh Milk",
-    image:
-      "https://images.unsplash.com/photo-1550583724-b2692b85b150?ixlib=rb-4.0.3",
-    category: "dairy-products",
-    bundleItems: [701, 702, 703, 704, 705, 706],
-  },
-];
-
-export default function ProductsPage() {
-  const navigate = useNavigate();
-  const { dispatch } = useCart();
-
-  const handleAddToCart = (bundle) => {
-    const discountedPrice = calculateBundlePrice(
-      bundle.bundleItems,
-      discountCategory,
-      discountPercent
-    );
-    dispatch({
-      type: "ADD_ITEM",
-      payload: {
-        ...bundle,
-        price: discountedPrice,
-        quantity: 1,
-      },
-    });
+  const setParam = (key, value) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
   };
 
+  const term = query.toLowerCase();
+  const products = pricedProducts()
+    .filter((p) => !activeCategory || p.category === activeCategory)
+    .filter(
+      (p) =>
+        !term ||
+        p.name.toLowerCase().includes(term) ||
+        categoryName(p.category).toLowerCase().includes(term)
+    )
+    .sort(sorts[sortKey].compare);
+
+  const baskets = pricedBundles().filter((b) => !activeCategory || b.category === activeCategory);
+  const showBaskets = !term && baskets.length > 0;
+
+  const chip = (active) =>
+    `flex-none rounded-full border px-4 py-2 text-sm transition-colors ${
+      active ? "border-green-700 bg-green-700 text-white" : "border-bark/15 bg-paper hover:border-green-600"
+    }`;
+
   return (
-    <div className="py-24 px-4 max-w-7xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8">All Products</h1>
+    <div className="page">
+      <header className="mb-6">
+        {aisle && <p className="eyebrow mb-2">Aisle</p>}
+        <h1 className="text-4xl font-medium text-green-900">{aisle ? aisle.name : "The shop"}</h1>
+        <p className="mt-2 max-w-2xl text-bark/65">
+          {aisle ? aisle.about : "Everything we have this week, from the farms around Ooty."}
+        </p>
+      </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {bundles.map((bundle) => {
-          const originalPrice = bundle.bundleItems.reduce((total, itemId) => {
-            const item = allProducts.find((p) => p.id === itemId);
-            return total + (item?.price || 0);
-          }, 0);
-
-          const discountedPrice = calculateBundlePrice(
-            bundle.bundleItems,
-            discountCategory,
-            discountPercent
-          );
-          const weight = calculateBundleWeight(bundle.bundleItems);
-          const isDiscounted = discountedPrice < originalPrice;
-
-          return (
-            <div
-              key={bundle.id}
-              className="bg-white rounded-lg shadow-md overflow-hidden"
-            >
-              <div
-                className="h-64 overflow-hidden cursor-pointer"
-                onClick={() => navigate(`/product/${bundle.id}`)}
-              >
-                <img
-                  src={bundle.image}
-                  alt={bundle.name}
-                  className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                />
-              </div>
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3
-                      className="font-semibold text-xl mb-1 cursor-pointer hover:text-green-600"
-                      onClick={() => navigate(`/product/${bundle.id}`)}
-                    >
-                      {bundle.name}
-                    </h3>
-                    <span className="text-sm text-gray-500">
-                      {bundle.category}
-                    </span>
-                    <p className="text-sm text-gray-500">{weight}</p>
-
-                    <div className="mt-1">
-                      {isDiscounted ? (
-                        <>
-                          <p className="text-lg">
-                            <span className="text-gray-500 line-through mr-2">
-                              ₹{originalPrice}
-                            </span>
-                            <span className="text-green-600 font-semibold">
-                              ₹{discountedPrice}
-                            </span>
-                          </p>
-                          <p className="text-sm text-green-600 font-medium">
-                            🎉 Save{" "}
-                            {Math.round(
-                              ((originalPrice - discountedPrice) /
-                                originalPrice) *
-                                100
-                            )}
-                            %
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-green-600 font-semibold text-lg">
-                          ₹{originalPrice}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-bold text-xl">
-                    ₹{discountedPrice}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleAddToCart(bundle)}
-                  className="mt-4 w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <ShoppingCart className="h-5 w-5" />
-                  Add to Cart
+      <div className="sticky top-[7.5rem] z-20 -mx-4 mb-6 border-b border-bark/10 bg-cream/95 px-4 py-3 backdrop-blur md:top-16">
+        <div className="flex items-center gap-3">
+          <div className="-my-1 flex flex-1 gap-2 overflow-x-auto py-1 [scrollbar-width:none]">
+            {fixedCategory ? (
+              <Link to="/products" className={chip(false)}>
+                All aisles
+              </Link>
+            ) : (
+              <button onClick={() => setParam("aisle", "")} className={chip(!activeCategory)}>
+                All
+              </button>
+            )}
+            {categories.map((c) =>
+              fixedCategory ? (
+                <Link key={c.slug} to={`/category/${c.slug}`} className={chip(c.slug === activeCategory)}>
+                  {c.name}
+                </Link>
+              ) : (
+                <button key={c.slug} onClick={() => setParam("aisle", c.slug)} className={chip(c.slug === activeCategory)}>
+                  {c.name}
                 </button>
-              </div>
-            </div>
-          );
-        })}
+              )
+            )}
+          </div>
+          <label className="sr-only" htmlFor="sort">
+            Sort by
+          </label>
+          <select
+            id="sort"
+            value={sortKey}
+            onChange={(e) => setParam("sort", e.target.value === "popular" ? "" : e.target.value)}
+            className="hidden h-10 rounded-full border border-bark/15 bg-paper px-4 text-sm sm:block"
+          >
+            {Object.entries(sorts).map(([key, { label }]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {query && (
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <p className="text-bark/70">
+            {products.length} {products.length === 1 ? "result" : "results"} for <strong>“{query}”</strong>
+          </p>
+          <button
+            onClick={() => setParam("q", "")}
+            className="inline-flex items-center gap-1 rounded-full bg-bark/5 px-3 py-1 text-sm hover:bg-bark/10"
+          >
+            Clear search <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {products.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+          {products.map((item) => (
+            <ProductCard key={item.id} item={item} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-bark/20 px-6 py-16 text-center">
+          <p className="font-medium">We don&apos;t have anything like that this week.</p>
+          <p className="mt-1 text-bark/60">Try another word, or browse an aisle above.</p>
+        </div>
+      )}
+
+      {showBaskets && (
+        <section id="baskets" className="mt-16 scroll-mt-40">
+          <h2 className="mb-2 text-2xl text-green-900 sm:text-3xl">Weekly baskets</h2>
+          <p className="mb-6 text-bark/65">A bit of everything, priced as the sum of what&apos;s inside.</p>
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-5">
+            {baskets.map((item) => (
+              <ProductCard key={item.id} item={item} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
