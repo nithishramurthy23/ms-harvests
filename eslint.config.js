@@ -37,4 +37,11 @@ export default [
       ],
     },
   },
+  {
+    // k6 load test scripts run in k6, not the browser
+    files: ['loadtest/**/*.js'],
+    languageOptions: {
+      globals: { __ENV: 'readonly', __VU: 'readonly', __ITER: 'readonly' },
+    },
+  },
 ]
