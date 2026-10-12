@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "../api/axiosInstance";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
+import { findItem } from "../data/catalog";
 import { useNavigate } from "react-router-dom";
 import { Package, Truck, CheckCircle, XCircle } from "lucide-react"; // Icons for status
 
@@ -11,6 +13,18 @@ export default function OrderHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { dispatch, openCart } = useCart();
+
+  // Put the products from a past order back in the cart at today's prices.
+  const orderAgain = (order) => {
+    (order.orderItems || []).forEach((line) => {
+      const product = findItem(line.productId);
+      if (product) {
+        dispatch({ type: "ADD_ITEM", payload: { ...product, quantity: line.quantity } });
+      }
+    });
+    openCart();
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -44,7 +58,7 @@ export default function OrderHistoryPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="py-24 px-4 text-center">
+      <div className="py-10 px-4 text-center">
         <h1 className="text-2xl font-bold mb-4">You are not logged in.</h1>
         <p className="text-gray-600 mb-4">
           Please log in to view your order history.
@@ -61,7 +75,7 @@ export default function OrderHistoryPage() {
 
   if (loading) {
     return (
-      <div className="py-24 px-4 text-center">
+      <div className="py-10 px-4 text-center">
         <h1 className="text-2xl font-bold text-gray-900">
           Loading Order History...
         </h1>
@@ -72,7 +86,7 @@ export default function OrderHistoryPage() {
 
   if (error) {
     return (
-      <div className="py-24 px-4 text-center">
+      <div className="py-10 px-4 text-center">
         <h1 className="text-2xl font-bold text-red-600">
           Error Loading Orders
         </h1>
@@ -89,7 +103,7 @@ export default function OrderHistoryPage() {
 
   if (orders.length === 0) {
     return (
-      <div className="py-24 px-4 text-center">
+      <div className="py-10 px-4 text-center">
         <h1 className="text-2xl font-bold text-gray-900">No Orders Found</h1>
         <p className="text-gray-600">You haven&apos;t placed any orders yet.</p>
         <button
@@ -107,7 +121,7 @@ export default function OrderHistoryPage() {
       case "pending":
         return <Package className="w-5 h-5 text-yellow-500" />;
       case "processing":
-        return <Truck className="w-5 h-5 text-blue-500" />;
+        return <Truck className="w-5 h-5 text-clay-500" />;
       case "shipped":
         return <Truck className="w-5 h-5 text-indigo-500" />;
       case "delivered":
@@ -120,7 +134,7 @@ export default function OrderHistoryPage() {
   };
 
   return (
-    <div className="py-24 px-4">
+    <div className="py-10 px-4">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-8 text-gray-900">
           Your Order History
@@ -140,7 +154,7 @@ export default function OrderHistoryPage() {
                       order.status === "PENDING"
                         ? "text-yellow-600"
                         : order.status === "PROCESSING"
-                        ? "text-blue-600"
+                        ? "text-clay-600"
                         : order.status === "SHIPPED"
                         ? "text-indigo-600"
                         : order.status === "DELIVERED"
@@ -207,11 +221,8 @@ export default function OrderHistoryPage() {
               </div>
 
               <div className="mt-6 text-right">
-                <button
-                  onClick={() => navigate(`/orders/${order.id}`)} // Navigate to individual order details page
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                >
-                  View Details
+                <button onClick={() => orderAgain(order)} className="btn-primary px-5 py-2">
+                  Order again
                 </button>
               </div>
             </div>

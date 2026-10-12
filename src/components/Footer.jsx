@@ -1,64 +1,66 @@
-import { Facebook, Twitter, Instagram, Mail, Phone, MapPin } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Mail, Phone, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
+import { categories } from "../data/catalog";
 
 export default function Footer() {
   return (
-    <footer className="bg-green-800 text-white">
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <footer className="bg-green-900 text-green-100">
+      <div className="mx-auto max-w-7xl px-4 pb-24 pt-14 sm:px-6 sm:pb-10 lg:px-8">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1.4fr]">
           <div>
-            <h3 className="text-xl font-bold mb-4">MS Fresh Harvest</h3>
-            <p className="text-green-200">
-              Bringing the freshest produce from local farms directly to your table.
+            <p className="font-display text-2xl font-bold text-white">MS Fresh Harvest</p>
+            <p className="mt-3 max-w-xs text-green-200">
+              Produce, dairy and honey from the farms around Ooty, packed by hand and paid for at
+              your door.
             </p>
           </div>
-          
+
           <div>
-            <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
-            <ul className="space-y-2">
-              <li><Link to="/about" className="text-green-200 hover:text-white">About Us</Link></li>
-              <li><Link to="/products" className="text-green-200 hover:text-white">Products</Link></li>
-              <li><Link to="/contact" className="text-green-200 hover:text-white">Contact</Link></li>
+            <p className="mb-3 font-medium text-white">Shop</p>
+            <ul className="space-y-2 text-green-200">
+              {categories.map((c) => (
+                <li key={c.slug}>
+                  <Link to={`/category/${c.slug}`} className="hover:text-white">
+                    {c.name}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
-          
+
           <div>
-            <h4 className="text-lg font-semibold mb-4">Contact Info</h4>
-            <ul className="space-y-2">
-              <li className="flex items-center gap-2">
-                <Phone className="h-5 w-5" />
-                <span className="text-green-200">+91 9487-027-142</span>
+            <p className="mb-3 font-medium text-white">The shop</p>
+            <ul className="space-y-2 text-green-200">
+              <li><Link to="/about" className="hover:text-white">Our farms</Link></li>
+              <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
+              <li><Link to="/orders" className="hover:text-white">Your orders</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="mb-3 font-medium text-white">Talk to us</p>
+            <ul className="space-y-3 text-green-200">
+              <li>
+                <a href="tel:+919487027142" className="flex items-center gap-2 hover:text-white">
+                  <Phone className="h-4 w-4 flex-none" /> +91 94870 27142
+                </a>
               </li>
-              <li className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                <span className="text-green-200">mageshshantha23@gmail.com</span>
+              <li>
+                <a href="mailto:mageshshantha23@gmail.com" className="flex items-center gap-2 break-all hover:text-white">
+                  <Mail className="h-4 w-4 flex-none" /> mageshshantha23@gmail.com
+                </a>
               </li>
-              <li className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                <span className="text-green-200">2/445, Anikorai Village, Ooty, The Nilgiris, 643206</span>
+              <li className="flex items-start gap-2">
+                <MapPin className="mt-1 h-4 w-4 flex-none" />
+                <span>2/445, Anikorai Village, Ooty, The Nilgiris 643206</span>
               </li>
             </ul>
           </div>
-          
-          <div>
-            <h4 className="text-lg font-semibold mb-4">Follow Us</h4>
-            <div className="flex space-x-4">
-              <a href="#" className="text-green-200 hover:text-white">
-                <Facebook className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-green-200 hover:text-white">
-                <Twitter className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-green-200 hover:text-white">
-                <Instagram className="h-6 w-6" />
-              </a>
-            </div>
-          </div>
         </div>
-        
-        <div className="mt-8 pt-8 border-t border-green-700 text-center text-green-200">
-          <p>&copy; {new Date().getFullYear()} MS Fresh Harvest. All rights reserved.</p>
-        </div>
+
+        <p className="mt-12 border-t border-green-800 pt-6 text-sm text-green-300">
+          © {new Date().getFullYear()} MS Fresh Harvest, Ooty.
+        </p>
       </div>
     </footer>
   );

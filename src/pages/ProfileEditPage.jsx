@@ -63,7 +63,7 @@ export default function ProfileEditPage() {
 
   if (loading) {
     return (
-      <div className="py-24 px-4 text-center">
+      <div className="py-10 px-4 text-center">
         <h1 className="text-2xl font-bold text-gray-900">
           Updating Profile...
         </h1>
@@ -72,7 +72,7 @@ export default function ProfileEditPage() {
   }
 
   return (
-    <div className="py-24 px-4">
+    <div className="py-10 px-4">
       <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
         <h1 className="text-3xl font-bold mb-6">Edit Profile</h1>
         {successMessage && (

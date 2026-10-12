@@ -174,7 +174,7 @@ export default function CheckoutPage() {
 
   if (state.items.length === 0) {
     return (
-      <div className="py-24 px-4 text-center">
+      <div className="py-10 px-4 text-center">
         <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
         <button
           onClick={() => navigate("/")}
@@ -187,7 +187,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="py-24 px-4">
+    <div className="py-10 px-4">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Checkout</h1>
 
