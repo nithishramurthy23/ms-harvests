@@ -307,7 +307,7 @@ ms-harvests/
 │   ├── api/axiosInstance.js   every call to the backend goes through here
 │   ├── pages/                 one file per page (Home, Products, Checkout, ...)
 │   ├── main/                  the Spring Boot backend lives here, inside src/
-│   │   ├── java/com/pooja/farm/fresh/           controllers, services, entities, security
+│   │   ├── java/com/nithishramurthy/farm/fresh/           controllers, services, entities, security
 │   │   └── resources/application.properties    backend settings (reads .env)
 │   └── test/                  backend tests (frontend tests sit next to the code as *.test.js)
 ├── Untitled.sql             database tables + sample categories, products, discounts

@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.pooja.farm.fresh</groupId>
+    <groupId>com.nithishramurthy.farm.fresh</groupId>
     <artifactId>farm-fresh-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>Farm Fresh Backend</name>
