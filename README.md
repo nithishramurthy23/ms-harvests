@@ -221,7 +221,7 @@ This creates the `farm_fresh` database with all tables and sample products. Ente
 mysql -u root -p < Untitled.sql
 ```
 
-> ⚠️ This script drops and recreates the tables, so running it again **wipes all users and orders**. Only run it for first-time setup or when you want a clean start.
+> This script drops and recreates the tables, so running it again **wipes all users and orders**. Only run it for first-time setup or when you want a clean start.
 
 ### 5.3 Start the backend (terminal 1)
 
