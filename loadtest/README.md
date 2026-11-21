@@ -13,7 +13,7 @@
 
 Use a throwaway database. `seed.sql` adds test users with a known password.
 
-1. Start the stack: `docker compose up -d --build` (see the main README).
+1. Start the stack: `docker compose up -d --build` (see [docs/setup.md](../docs/setup.md)).
 2. Load the test data:
    ```bash
    docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" farm_fresh' < loadtest/seed.sql
