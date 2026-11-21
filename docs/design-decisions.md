@@ -141,6 +141,22 @@ All secrets (database password, JWT secret, Gmail app password) and per-environm
 
 ---
 
+## 10. Every endpoint that takes an id checks who owns it
+
+**Problem.** `OrderItemController` exposed `GET /api/order-items/{id}`, `GET /api/order-items/order/{orderId}` and `DELETE /api/order-items/{id}`. Security only required *a* valid JWT, and the service looked items up by id alone. So any logged-in customer could read, or delete, line items from someone else's order by counting up the ids (an IDOR, part of OWASP's "Broken Access Control"). Authentication said who the caller was. Nothing checked whether the item was theirs.
+
+**Decision.** Remove the endpoints, along with `OrderItemService`. The frontend never called them: order lines are read through `GET /api/orders/{id}`, which already compares the order's owner with the user in the token. Order lines are part of an order and have no reason to be addressable on their own, and a deleted endpoint can't be attacked.
+
+**Alternatives considered.**
+- *Keep them and check ownership* (`item.getOrder().getUser().getId()` against the caller, returning 404 on a mismatch so the response doesn't reveal that the id exists). That's the right fix if an admin screen ever needs them, but then they belong under `/api/admin/**` with a role check.
+- *Random UUIDs instead of sequential ids.* Makes ids harder to guess, but it only hides the hole and doesn't close it.
+
+**Tradeoff.** None for customers today. An admin feature that edits order lines will need a new, role-protected endpoint.
+
+**Tested by.** `OrderFlowIntegrationTest.otherCustomersCannotReadOrDeleteMyOrderItems`: user A places an order, user B gets 404 on all three item URLs and 403 on A's order, and A's item still exists afterwards. The test was written first and failed (200) against the old code.
+
+---
+
 ## What I'd do next
 
 Roughly in order of value:
