@@ -136,6 +136,10 @@ public class OrderService {
             Product product = productRepository.findById(itemDto.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemDto.getProductId()));
 
+            if (!product.isActive()) {
+                throw new IllegalArgumentException("Product is no longer sold: " + product.getName());
+            }
+
             if (itemDto.getQuantity() == null || itemDto.getQuantity() <= 0) {
                 throw new IllegalArgumentException("Quantity must be at least 1 for product: " + product.getName());
             }

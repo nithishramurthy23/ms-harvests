@@ -169,13 +169,7 @@ public class AuthController {
 
             User updatedUser = authService.updateUserProfile(userEmail, updateRequest);
             
-            UserProfileResponse profileResponse = new UserProfileResponse(
-                updatedUser.getId(),
-                updatedUser.getName(),
-                updatedUser.getEmail(),
-                updatedUser.getPhone(),
-                updatedUser.getAddress()
-            );
+            UserProfileResponse profileResponse = new UserProfileResponse(updatedUser);
 
             return ResponseEntity.ok(profileResponse);
         } catch (IllegalArgumentException e) {
@@ -192,13 +186,7 @@ public class AuthController {
             String token = authHeader.replace("Bearer ", "");
             User user = authService.getUserFromToken(token);
 
-            UserProfileResponse profile = new UserProfileResponse(
-                user.getId(),
-                user.getName(),
-                user.getEmail(),
-                user.getPhone(),
-                user.getAddress()
-            );
+            UserProfileResponse profile = new UserProfileResponse(user);
 
             return ResponseEntity.ok(profile);
         } catch (IllegalArgumentException e) {

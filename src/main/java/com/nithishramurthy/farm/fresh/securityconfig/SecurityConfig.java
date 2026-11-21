@@ -98,6 +98,10 @@ public class SecurityConfig {
                     "/swagger-ui/**", "/v3/api-docs/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/offers/today").permitAll()
+                // Running the store: products, stock and orders. Users and members can't.
+                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OWNER")
+                // Roles and sales figures are for the owner only.
+                .requestMatchers("/api/owner/**").hasRole("OWNER")
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -157,12 +157,39 @@ All secrets (database password, JWT secret, Gmail app password) and per-environm
 
 ---
 
+## 11. Four roles, checked at the URL level
+
+**Problem.** Running the shop meant writing SQL, because every account was `ROLE_USER` and nothing checked roles. The store needs people who can manage products, stock and orders without being able to do everything.
+
+**Decision.** `Role` has four values, stored in the existing `users.role` column as Spring authorities, so old rows still read as `USER`:
+
+| Role | Can do |
+|---|---|
+| USER, MEMBER | Shop, and cancel their own order while it's PENDING |
+| ADMIN | `/api/admin/**`: products, stock, all orders |
+| OWNER | Everything an admin can, plus `/api/owner/**`: roles and sales summary |
+
+The rules are two lines in `SecurityConfig` (`/api/admin/**` needs ADMIN or OWNER, `/api/owner/**` needs OWNER), so one file shows who can reach what. The JWT filter loads the user from the database on every request, which means a role change takes effect on the next request without logging out. The first owner comes from `OWNER_EMAIL`, so setting up a shop needs no SQL.
+
+Order statuses are a small state machine in `OrderStatus.canMoveTo`: PENDING → PROCESSING → SHIPPED → DELIVERED, cancellable until shipped. Cancelling returns each item's quantity with the same conditional `UPDATE` admins use, and logs it in `stock_movements`.
+
+**Alternatives considered.**
+- *`@PreAuthorize` on each method.* It works, but the rules end up spread across controllers. URL rules are easier to review while the API is small.
+- *Roles inside the JWT.* That saves a database read, but a demoted admin would keep access until the token expired. The lookup already happens for every request.
+- *A permissions table (role → permission).* More flexible, but four fixed roles don't need it yet.
+
+**Tradeoff.** MEMBER has no perks yet; it's there so member pricing can be added without another migration. Admin errors go through a `@RestControllerAdvice` (404/400/409 with a `message`), while the older customer endpoints still catch exceptions themselves. Moving those over is a follow-up.
+
+**Tested by.** `StoreAdminIntegrationTest` runs the whole cycle (add product → sell out → restock → PROCESSING → SHIPPED → DELIVERED) and checks that users and members get 403 on every admin endpoint, that stock can't go below zero, that hidden products can't be bought, that cancelling restocks, and that owners can't demote themselves. `OrderStatusTest` covers every status transition.
+
+---
+
 ## What I'd do next
 
 Roughly in order of value:
 
 1. **Database migrations with Flyway** instead of `spring.jpa.hibernate.ddl-auto=update`, so schema changes are versioned, reviewed, and repeatable.
-2. **Admin screens** for products, stock and order status, with role checks, so nothing needs SQL.
+2. **Admin dashboard in React** on top of the admin API.
 3. **Idempotency key on place-order**, so a client retry after a network error can't create a second order.
 4. **Transactional outbox for email** (see decision 5).
 5. **Rate limit OTP sending and login attempts.**

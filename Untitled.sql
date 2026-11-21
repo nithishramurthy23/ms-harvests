@@ -3,6 +3,7 @@ CREATE DATABASE IF NOT EXISTS farm_fresh;
 USE farm_fresh;
 
 -- Drop tables in correct order due to foreign key dependencies
+DROP TABLE IF EXISTS stock_movements;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS orders;
@@ -20,7 +21,7 @@ CREATE TABLE users (
   password VARCHAR(255) NOT NULL,
   address TEXT, -- Nullable as per entity
   phone VARCHAR(20), -- Nullable as per entity
-  role VARCHAR(50) NOT NULL DEFAULT 'ROLE_USER',
+  role VARCHAR(50) NOT NULL DEFAULT 'ROLE_USER', -- ROLE_USER, ROLE_MEMBER, ROLE_ADMIN or ROLE_OWNER
   otp_code VARCHAR(6), -- OTP code (6 digits)
   otp_expiry TIMESTAMP, -- Correctly stores Instant as UTC timestamp
   enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -47,6 +48,7 @@ CREATE TABLE products (
   image_url VARCHAR(255),
   category_id BIGINT,
   stock_quantity INTEGER NOT NULL DEFAULT 0,
+  active BOOLEAN NOT NULL DEFAULT TRUE, -- FALSE hides it from the shop
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 );
 
@@ -129,6 +131,20 @@ CREATE TABLE order_items (
 
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX idx_order_items_product_id ON order_items(product_id);
+
+-- STOCK HISTORY (restocks, corrections, cancelled orders)
+CREATE TABLE stock_movements (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  product_id BIGINT NOT NULL,
+  quantity_change INT NOT NULL,
+  stock_after INT NOT NULL,
+  reason VARCHAR(255),
+  changed_by VARCHAR(255) NOT NULL,
+  changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+CREATE INDEX idx_stock_movements_product_id ON stock_movements(product_id);
 
 -- INITIAL DATA
 

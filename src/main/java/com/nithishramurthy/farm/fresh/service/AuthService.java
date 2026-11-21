@@ -38,6 +38,7 @@ public class AuthService {
     private final MailService mailService;
     private final CustomUserDetailsService customUserDetailsService;
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final OwnerAccountSetup ownerAccountSetup;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -46,7 +47,8 @@ public class AuthService {
                        JwtTokenProvider jwtTokenProvider,
                        MailService mailService,
                        CustomUserDetailsService customUserDetailsService,
-                       GoogleTokenVerifier googleTokenVerifier) {
+                       GoogleTokenVerifier googleTokenVerifier,
+                       OwnerAccountSetup ownerAccountSetup) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
@@ -55,6 +57,7 @@ public class AuthService {
         this.mailService = mailService;
         this.customUserDetailsService = customUserDetailsService;
         this.googleTokenVerifier = googleTokenVerifier;
+        this.ownerAccountSetup = ownerAccountSetup;
     }
 
     /** Saves a new, not yet activated user with a hashed password and emails the activation OTP. */
@@ -70,7 +73,7 @@ public class AuthService {
         newUser.setName(request.getName());
         newUser.setPhone(request.getPhone());
         newUser.setAddress(request.getAddress());
-        newUser.setRole("ROLE_USER");
+        newUser.setRole(ownerAccountSetup.roleForNewAccount(request.getEmail()).authority());
         newUser.setEnabled(false);
 
         User savedUser = userRepository.save(newUser);
@@ -147,7 +150,7 @@ public class AuthService {
             // so the column stays filled but nobody can log in with it; they can still
             // set a real one later with "Forgot password".
             newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-            newUser.setRole("ROLE_USER");
+            newUser.setRole(ownerAccountSetup.roleForNewAccount(googleUser.email()).authority());
             return newUser;
         });
 

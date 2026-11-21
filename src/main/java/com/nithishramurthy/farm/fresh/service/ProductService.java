@@ -39,11 +39,11 @@ public class ProductService {
         return priceWith(product, todaysRules());
     }
 
-    /** Every product with today's price and stock, ordered by id. */
+    /** Every visible product with today's price and stock, ordered by id. */
     @Transactional(readOnly = true)
     public List<CatalogProduct> listCatalog() {
         List<DiscountRule> rules = todaysRules();
-        return productRepository.findAll().stream()
+        return productRepository.findByActiveTrue().stream()
                 .sorted(Comparator.comparing(Product::getId))
                 .map(product -> toCatalogProduct(product, rules))
                 .toList();
@@ -53,6 +53,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public Optional<CatalogProduct> findCatalogProduct(Long id) {
         return productRepository.findById(id)
+                .filter(Product::isActive)
                 .map(product -> toCatalogProduct(product, todaysRules()));
     }
 

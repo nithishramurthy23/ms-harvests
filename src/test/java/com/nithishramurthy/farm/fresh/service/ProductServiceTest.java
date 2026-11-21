@@ -104,7 +104,7 @@ class ProductServiceTest {
         Product carrots = product(vegetables, "40.00", "40.00");
         carrots.setId(201L);
         carrots.setStockQuantity(0);
-        when(productRepository.findAll()).thenReturn(List.of(carrots, plums));
+        when(productRepository.findByActiveTrue()).thenReturn(List.of(carrots, plums));
 
         List<CatalogProduct> catalog = productService.listCatalog();
 

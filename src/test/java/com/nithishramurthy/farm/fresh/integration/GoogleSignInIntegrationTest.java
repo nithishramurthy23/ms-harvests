@@ -5,6 +5,7 @@ import com.nithishramurthy.farm.fresh.entity.User;
 import com.nithishramurthy.farm.fresh.mainprog.FarmFreshApplication;
 import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
+import com.nithishramurthy.farm.fresh.repository.StockMovementRepository;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
 import com.nithishramurthy.farm.fresh.securityconfig.GoogleTokenVerifier;
 import com.nithishramurthy.farm.fresh.securityconfig.GoogleTokenVerifier.GoogleUser;
@@ -43,11 +44,14 @@ class GoogleSignInIntegrationTest {
     @Autowired private OrderRepository orderRepository;
     @Autowired private OrderItemRepository orderItemRepository;
 
+    @Autowired private StockMovementRepository stockMovementRepository;
+
     @MockBean private GoogleTokenVerifier googleTokenVerifier;
     @MockBean private JavaMailSender mailSender;
 
     @BeforeEach
     void setUp() {
+        stockMovementRepository.deleteAll();
         orderItemRepository.deleteAll();
         orderRepository.deleteAll();
         userRepository.deleteAll();

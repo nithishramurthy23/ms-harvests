@@ -8,6 +8,7 @@ import com.nithishramurthy.farm.fresh.repository.DiscountRuleRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
 import com.nithishramurthy.farm.fresh.repository.ProductRepository;
+import com.nithishramurthy.farm.fresh.repository.StockMovementRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,8 @@ class CatalogIntegrationTest {
     @Autowired private OrderRepository orderRepository;
     @Autowired private OrderItemRepository orderItemRepository;
 
+    @Autowired private StockMovementRepository stockMovementRepository;
+
     @MockBean
     private JavaMailSender mailSender;
 
@@ -46,6 +49,7 @@ class CatalogIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        stockMovementRepository.deleteAll();
         orderItemRepository.deleteAll();
         orderRepository.deleteAll();
         discountRuleRepository.deleteAll();
