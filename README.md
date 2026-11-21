@@ -22,6 +22,7 @@ It's a Spring Boot REST API with a React frontend. The backend runs as several s
 - **No overselling under load.** Stock is reserved with one conditional `UPDATE ... WHERE stock >= qty` inside the order transaction. In a k6 flash sale with 500 buyers and 100 items across 2 backend copies, exactly 100 orders went through and stock ended at 0, in every run.
 - **Found and fixed real bottlenecks.** Profiling with Java Flight Recorder showed about 20% of CPU going to rebuilding the JWT parser on every request. Combined with sizing Tomcat's threads to the DB pool, order-history p95 dropped from ~780 ms to ~350 ms and flash-sale errors went from up to 248 to 0. Details are in [loadtest/RESULTS.md](loadtest/RESULTS.md).
 - **Payments that can't double-charge.** Online payment goes through Razorpay, and both the browser and Razorpay's webhook can report the same payment. Each payment change is one conditional `UPDATE`, so it counts exactly once. A retried checkout with the same `Idempotency-Key` returns the first order, unpaid orders release their stock after 30 minutes, and cancelled paid orders are refunded automatically. Explained in plain words in [docs/payments.md](docs/payments.md).
+- **Search that forgives typing.** Plurals and capitals don't matter, every word must match, results are ranked by where the match is, and a typo gets "Did you mean carrot?". Aisle counts, price and stock filters, six sorts and pages, all in the URL. It runs in memory on purpose, because prices depend on today's discounts ([docs/search.md](docs/search.md)).
 - **The server decides the price.** Totals are calculated from database prices and weekday discount rules, so a price edited in the browser is ignored.
 - **OTP guesses can't be reset by a rollback.** The order OTP check commits in its own transaction, so a wrong guess still counts even when the order fails.
 - **Roles with real access checks.** Users and members shop. Admins run the store and decide who is a member; the owner adds and removes admins. The rules live in `SecurityConfig`, and integration tests try every admin endpoint as a user and a member. Customers can't see or cancel each other's orders, and the last owner can't be demoted.
@@ -80,6 +81,7 @@ Endpoints marked 🔒 need an `Authorization: Bearer <jwt>` header.
 | POST | `/api/auth/forgot-password` | Email a password-reset code |
 | POST | `/api/auth/reset-password` | Set a new password with the reset code |
 | GET | `/api/products` | All products with today's price and stock left |
+| GET | `/api/products/search` | Search with filters, sorting and pages ([details](docs/search.md#the-api)) |
 | GET | `/api/products/{id}` | One product |
 | GET | `/api/offers/today` | Today's category offer (204 if none) |
 | GET | `/api/auth/me` 🔒 | Current user's profile |
@@ -176,7 +178,7 @@ src/test/java/                  backend unit and integration tests
 src/ (pages, components, ...)   React app
 Untitled.sql                    schema and sample data
 deploy/                         nginx, Caddy and production compose file
-docs/                           setup guide, design decisions, payments, deployment, Google sign-in
+docs/                           setup guide, design decisions, payments, search, deployment, Google sign-in
 loadtest/                       k6 scripts and results
 ```
 

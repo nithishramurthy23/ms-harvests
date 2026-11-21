@@ -211,6 +211,31 @@ Order statuses are a small state machine in `OrderStatus.canMoveTo`: PENDING →
 
 Plain-language version, with setup steps: [payments.md](payments.md).
 
+## 13. Search in memory, with today's prices
+
+**Problem.** The shop page filtered and sorted in the browser, and the search box used a plain "contains" match, so "carrots" missed "Carrot" and a typo found nothing. Customers also couldn't filter by price or stock, and there were no pages.
+
+**Decision.** One server endpoint, `GET /api/products/search`, used by both the shop page and the search box. `ProductSearchService` takes the visible catalogue with today's prices from `ProductService` and then:
+
+- normalises words (lower case, accents removed, simple plurals made singular);
+- requires every word to match, and scores matches by where they were found (name, then aisle, then description);
+- filters by price range and stock, then counts results per aisle *before* applying the aisle filter, so the chips show what switching aisle would give;
+- sorts with sold-out products always last. "Popular" uses units sold in the last 30 days, from one `GROUP BY` query;
+- suggests a product name within 1 or 2 edits (Levenshtein) when nothing matches.
+
+All filters live in the URL, so results can be shared and the back button works.
+
+**Alternatives considered.**
+- *SQL with JPA Specifications.* Good for text and aisle, but the price shown depends on today's discount rules, which are applied in Java. Filtering or sorting by price in SQL would be wrong for discounted products, unless that price were stored in a column.
+- *MySQL full-text search (`MATCH ... AGAINST`).* Better at scale, but it doesn't handle typos, and H2 in the tests doesn't support it.
+- *OpenSearch or Elasticsearch.* The right tool for a big catalogue, with typo handling and facets built in, but it's another service to run, and far more than a few hundred products need.
+
+**Tradeoff.** Every search loads the whole visible catalogue. At a few hundred products that's under a millisecond, but it doesn't scale to a large catalogue. The way out is to store today's price in a column (recomputed when the rules change), then move text matching to a full-text index or a search engine. The endpoint and its response wouldn't need to change.
+
+**Tested by.** `ProductSearchServiceTest` (11 tests: plurals, every word must match, scoring order, aisle and description matches, price, stock and aisle filters, aisle counts, every sort, paging, typo suggestions) and an integration test in `CatalogIntegrationTest` that calls the real endpoint without logging in.
+
+Plain-language version: [search.md](search.md).
+
 ## What I'd do next
 
 Roughly in order of value:
