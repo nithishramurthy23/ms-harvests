@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { categoryName, pricedProducts } from "../data/catalog";
+import { categoryName } from "../data/catalog";
+import { useCatalog } from "../context/CatalogContext";
 import ProductImage from "./ProductImage";
 
 // Search box with instant suggestions. Enter shows every match on the shop page.
@@ -9,10 +10,11 @@ export default function SearchBar({ onNavigate }) {
   const [query, setQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const navigate = useNavigate();
+  const { products } = useCatalog();
 
   const term = query.trim().toLowerCase();
   const matches = term
-    ? pricedProducts()
+    ? products
         .filter(
           (p) =>
             p.name.toLowerCase().includes(term) ||

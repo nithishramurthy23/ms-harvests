@@ -1,7 +1,8 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { X } from "lucide-react";
 import ProductCard from "../components/ProductCard";
-import { categories, categoryName, getCategory, pricedBundles, pricedProducts } from "../data/catalog";
+import { categories, categoryName, getCategory } from "../data/catalog";
+import { useCatalog } from "../context/CatalogContext";
 
 const sorts = {
   popular: { label: "Popular", compare: () => 0 },
@@ -14,6 +15,7 @@ const sorts = {
 // /category/:slug, which passes the aisle in.
 export default function ProductsPage({ category: fixedCategory }) {
   const [params, setParams] = useSearchParams();
+  const catalog = useCatalog();
   const query = params.get("q")?.trim() ?? "";
   const sortKey = sorts[params.get("sort")] ? params.get("sort") : "popular";
   const activeCategory = fixedCategory ?? params.get("aisle") ?? "";
@@ -27,7 +29,7 @@ export default function ProductsPage({ category: fixedCategory }) {
   };
 
   const term = query.toLowerCase();
-  const products = pricedProducts()
+  const products = catalog.products
     .filter((p) => !activeCategory || p.category === activeCategory)
     .filter(
       (p) =>
@@ -35,9 +37,11 @@ export default function ProductsPage({ category: fixedCategory }) {
         p.name.toLowerCase().includes(term) ||
         categoryName(p.category).toLowerCase().includes(term)
     )
-    .sort(sorts[sortKey].compare);
+    .sort(sorts[sortKey].compare)
+    // sold-out items stay visible but move to the end
+    .sort((a, b) => Number(b.inStock) - Number(a.inStock));
 
-  const baskets = pricedBundles().filter((b) => !activeCategory || b.category === activeCategory);
+  const baskets = catalog.bundles.filter((b) => !activeCategory || b.category === activeCategory);
   const showBaskets = !term && baskets.length > 0;
 
   const chip = (active) =>
@@ -111,7 +115,16 @@ export default function ProductsPage({ category: fixedCategory }) {
         </div>
       )}
 
-      {products.length > 0 ? (
+      {catalog.status === "loading" ? (
+        <p className="py-16 text-center text-bark/60">Loading this week&apos;s harvest…</p>
+      ) : catalog.status === "error" ? (
+        <div className="rounded-2xl border border-dashed border-bark/20 px-6 py-16 text-center">
+          <p className="font-medium">We couldn&apos;t load the shop just now.</p>
+          <button onClick={catalog.reload} className="btn-ghost mt-4">
+            Try again
+          </button>
+        </div>
+      ) : products.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
           {products.map((item) => (
             <ProductCard key={item.id} item={item} />

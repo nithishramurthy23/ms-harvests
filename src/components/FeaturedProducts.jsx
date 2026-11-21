@@ -1,16 +1,15 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import ProductCard from "./ProductCard";
-import { categoryName, pricedBundles, pricedProducts } from "../data/catalog";
-import { getTodayDiscount } from "../utils/discounts";
+import { categoryName } from "../data/catalog";
+import { useCatalog } from "../context/CatalogContext";
 
 // Picks for the home page: today's offer category if there is one, otherwise
 // a mix from every aisle.
 const WEEKEND_PICKS = [101, 202, 207, 601, 701, 703, 801, 1101];
 
 export default function FeaturedProducts() {
-  const offer = getTodayDiscount();
-  const products = pricedProducts();
+  const { offer, products, bundles } = useCatalog();
   const picks = offer
     ? products.filter((p) => p.category === offer.category).slice(0, 8)
     : WEEKEND_PICKS.map((id) => products.find((p) => p.id === id)).filter(Boolean);
@@ -44,7 +43,7 @@ export default function FeaturedProducts() {
           <p className="eyebrow mb-2">Less deciding, more cooking</p>
           <h2 className="mb-6 text-2xl text-green-900 sm:text-3xl">Weekly baskets</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-5">
-            {pricedBundles().map((item) => (
+            {bundles.map((item) => (
               <ProductCard key={item.id} item={item} />
             ))}
           </div>

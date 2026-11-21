@@ -74,6 +74,9 @@ Endpoints marked 🔒 need an `Authorization: Bearer <jwt>` header.
 | POST | `/api/auth/google` | Exchange a Google ID token for a JWT |
 | POST | `/api/auth/forgot-password` | Email a password-reset code |
 | POST | `/api/auth/reset-password` | Set a new password with the reset code |
+| GET | `/api/products` | All products with today's price and stock left |
+| GET | `/api/products/{id}` | One product |
+| GET | `/api/offers/today` | Today's category offer (204 if none) |
 | GET | `/api/auth/me` 🔒 | Current user's profile |
 | PUT | `/api/auth/update-profile` 🔒 | Update name, phone and address |
 | POST | `/api/orders/initiate-order` 🔒 | Email the order confirmation code |
@@ -149,4 +152,4 @@ loadtest/                       k6 scripts and results
 
 ## What's next
 
-Flyway migrations, serving the catalogue from the API instead of the frontend's copy, an idempotency key on checkout, rate limiting on the OTP endpoints, and an admin screen for order status. The full list, in priority order, is at the end of [docs/design-decisions.md](docs/design-decisions.md#what-id-do-next).
+Admin screens for products, stock and orders, Flyway migrations, an idempotency key on checkout, rate limiting on the OTP endpoints, and an admin screen for order status. The full list, in priority order, is at the end of [docs/design-decisions.md](docs/design-decisions.md#what-id-do-next).

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import ProductImage from "./ProductImage";
 import AddToCartButton from "./AddToCartButton";
 import Price from "./Price";
+import StockNote from "./StockNote";
 
 // Grid card used on every listing. Expects an item that already has today's
 // price (see data/catalog.js).
@@ -17,7 +18,14 @@ export default function ProductCard({ item }) {
           alt={item.name}
           className="aspect-[4/3] w-full transition-transform duration-500 group-hover:scale-[1.03]"
         />
-        {offPercent > 0 && (
+        {!item.inStock && (
+          <span className="absolute inset-0 flex items-center justify-center bg-cream/60">
+            <span className="rounded-full bg-bark px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+              Out of stock
+            </span>
+          </span>
+        )}
+        {item.inStock && offPercent > 0 && (
           <span className="absolute left-3 top-3 rounded-full bg-clay-500 px-2.5 py-1 text-xs font-bold text-white">
             {offPercent}% off today
           </span>
@@ -33,6 +41,7 @@ export default function ProductCard({ item }) {
         </Link>
         <div className="mt-auto flex flex-col gap-3 pt-3">
           <Price price={item.price} mrp={item.mrp} />
+          {item.inStock && <StockNote item={item} className="-mt-2" />}
           <AddToCartButton item={item} size="sm" />
         </div>
       </div>

@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
-import { getTodayDiscount } from "../utils/discounts";
 import { categoryName } from "../data/catalog";
 import { useAuth } from "../context/AuthContext";
+import { useCatalog } from "../context/CatalogContext";
 import ProductImage from "./ProductImage";
 
 const HERO_IMAGE = "https://im.hunt.in/cg/Ooty/City-Guide/Carrot-Farming-in-Ooty.jpg";
 
 export default function Hero() {
   const { user } = useAuth();
-  const offer = getTodayDiscount();
+  const { offer } = useCatalog();
 
   return (
     <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-12 pt-8 sm:px-6 md:grid-cols-[1.05fr_1fr] md:pt-14 lg:px-8">
