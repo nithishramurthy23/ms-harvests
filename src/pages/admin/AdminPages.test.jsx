@@ -21,6 +21,7 @@ vi.mock("./adminApi", async (importOriginal) => {
       setActive: vi.fn(),
       orders: vi.fn(),
       setOrderStatus: vi.fn(),
+      retryRefund: vi.fn(),
       users: vi.fn(),
       setRole: vi.fn(),
       roleChanges: vi.fn(),
@@ -153,6 +154,28 @@ describe("orders", () => {
     expect(adminApi.setOrderStatus).toHaveBeenCalledWith(41, "PROCESSING");
     // the "New" filter is on, so the order leaves the list
     expect(await screen.findByText("No new orders.")).toBeInTheDocument();
+  });
+});
+
+describe("refunds", () => {
+  it("lets an admin retry a refund that failed", async () => {
+    const user = userEvent.setup();
+    currentUser = { id: 1, name: "Admin", role: "ADMIN" };
+    const order = {
+      id: 42, customerName: "Asha", customerEmail: "asha@example.com", orderDate: "2026-11-21T10:00:00",
+      status: "CANCELLED", nextStatuses: [], totalAmount: 149, paymentMethod: "online", paymentStatus: "REFUND_PENDING",
+      shippingAddress: "12 MG Road", items: [],
+    };
+    adminApi.orders.mockResolvedValue([order]);
+    adminApi.retryRefund.mockResolvedValue({ paymentStatus: "REFUNDED" });
+    renderAdmin(<AdminOrdersPage />, "/admin/orders");
+
+    expect(await screen.findByText("Refund on its way")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry refund" }));
+
+    expect(adminApi.retryRefund).toHaveBeenCalledWith(42);
+    expect(await screen.findByText("Refunded")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry refund" })).not.toBeInTheDocument();
   });
 });
 

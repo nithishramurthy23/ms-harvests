@@ -16,6 +16,7 @@ public class OrderDTO {
     private String shippingAddress;
     private String paymentMethod;
     private String status;
+    private String paymentStatus;
     private LocalDateTime orderDate;
     private BigDecimal totalAmount;
     private List<OrderItemDTO> orderItems;
@@ -27,6 +28,7 @@ public class OrderDTO {
         this.shippingAddress = order.getShippingAddress();
         this.paymentMethod = order.getPaymentMethod();
         this.status = order.getStatus() != null ? order.getStatus().name() : null;
+        this.paymentStatus = order.getPaymentStatus().name();
         this.orderDate = order.getOrderDate();
         this.totalAmount = order.getTotalAmount();
         this.orderItems = order.getOrderItems() != null
@@ -65,6 +67,14 @@ public class OrderDTO {
 
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
     }
 
     public String getStatus() {

@@ -31,7 +31,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,9 +45,10 @@ class OrderServiceTest {
     @Mock private ProductRepository productRepository;
     @Mock private OrderItemRepository orderItemRepository;
     @Mock private OtpService otpService;
-    @Mock private MailService mailService;
+    @Mock private org.springframework.context.ApplicationEventPublisher events;
     @Mock private ProductService productService;
     @Mock private PlatformTransactionManager transactionManager;
+    @Mock private com.nithishramurthy.farm.fresh.payment.PaymentService paymentService;
 
     @InjectMocks
     private OrderService orderService;
@@ -166,17 +166,17 @@ class OrderServiceTest {
     }
 
     @Test
-    void mailFailureDoesNotFailTheOrder() {
+    void cashOnDeliveryOrderAsksForTheConfirmationEmail() {
         Product plums = product(101L, "Ooty Plums", "199.00");
         stubValidOtp();
         stubProduct(plums, "199.00");
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> withId(inv.getArgument(0), 10L));
-        doThrow(new RuntimeException("SMTP down"))
-                .when(mailService).sendOrderConfirmationEmail(any(), any(), any());
 
         OrderResponse response = orderService.placeOrder(request("cod", item(101L, 1, null)));
 
         assertThat(response.getOrderId()).isEqualTo(10L);
+        verify(events).publishEvent(new com.nithishramurthy.farm.fresh.notification.OrderEmailEvent(
+                10L, com.nithishramurthy.farm.fresh.notification.OrderEmailType.CONFIRMED));
     }
 
     private void stubValidOtp() {

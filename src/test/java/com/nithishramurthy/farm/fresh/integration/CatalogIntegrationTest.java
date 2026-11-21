@@ -94,6 +94,26 @@ class CatalogIntegrationTest {
     }
 
     @Test
+    void searchIsPublicAndFiltersAndPages() throws Exception {
+        mockMvc.perform(get("/api/products/search").param("q", "plum"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.items[0].name").value("Ooty Plums"));
+
+        mockMvc.perform(get("/api/products/search").param("inStock", "true").param("sort", "price-desc"))
+                .andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.categoryCounts.fruits").value(1));
+
+        mockMvc.perform(get("/api/products/search").param("size", "1").param("page", "1").param("sort", "name"))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.items.length()").value(1));
+
+        mockMvc.perform(get("/api/products/search").param("q", "plumz"))
+                .andExpect(jsonPath("$.totalItems").value(0))
+                .andExpect(jsonPath("$.didYouMean").value("plum"));
+    }
+
+    @Test
     void unknownProductIs404() throws Exception {
         mockMvc.perform(get("/api/products/999999"))
                 .andExpect(status().isNotFound());

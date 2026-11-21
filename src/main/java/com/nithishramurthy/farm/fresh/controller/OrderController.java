@@ -60,7 +60,8 @@ public class OrderController {
 
     /** Step 2 of checkout: validates the request and places the order. */
     @PostMapping("/place-order")
-    public ResponseEntity<?> placeOrder(@Valid @RequestBody OrderRequest orderRequest, BindingResult bindingResult) {
+    public ResponseEntity<?> placeOrder(@Valid @RequestBody OrderRequest orderRequest, BindingResult bindingResult,
+                                        @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         try {
             if (bindingResult.hasErrors()) {
                 Map<String, String> errors = new HashMap<>();
@@ -69,7 +70,7 @@ public class OrderController {
                 return ResponseEntity.badRequest().body(errors);
             }
 
-            OrderResponse response = orderService.placeOrder(orderRequest);
+            OrderResponse response = orderService.placeOrder(orderRequest, idempotencyKey);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));

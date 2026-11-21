@@ -5,10 +5,11 @@ import { useCart } from "../context/CartContext";
 import { useCatalog } from "../context/CatalogContext";
 import { useNavigate } from "react-router-dom";
 import { Package, Truck, CheckCircle, XCircle } from "lucide-react"; // Icons for status
+import { PAYMENT_LABEL, payForOrder, retryPayment } from "../utils/payments";
 
 // Lists the logged-in user's past orders.
 export default function OrderHistoryPage() {
-  const { token, isAuthenticated, logout } = useAuth();
+  const { token, isAuthenticated, logout, user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -23,10 +24,34 @@ export default function OrderHistoryPage() {
     setCancelError(null);
     try {
       await api.post(`/orders/${order.id}/cancel`);
-      setOrders((list) => list.map((o) => (o.id === order.id ? { ...o, status: "CANCELLED" } : o)));
+      setOrders((list) =>
+        list.map((o) =>
+          o.id === order.id
+            ? {
+                ...o,
+                status: "CANCELLED",
+                paymentStatus:
+                  o.paymentStatus === "PAID" ? "REFUND_PENDING" : o.paymentStatus === "AWAITING_PAYMENT" ? "UNPAID" : o.paymentStatus,
+              }
+            : o
+        )
+      );
       reloadCatalog();
     } catch (err) {
       setCancelError(err.response?.data?.message || "Couldn't cancel the order.");
+    }
+  };
+
+  // Online orders that weren't paid yet can be paid from here until they expire.
+  const payNow = async (order) => {
+    setCancelError(null);
+    try {
+      const payment = await retryPayment(order.id);
+      const paymentStatus = await payForOrder(order.id, payment, user || {});
+      setOrders((list) => list.map((o) => (o.id === order.id ? { ...o, paymentStatus } : o)));
+    } catch (err) {
+      if (err?.dismissed) return;
+      setCancelError(err.response?.data?.message || err.message || "The payment didn't go through.");
     }
   };
 
@@ -200,7 +225,8 @@ export default function OrderHistoryPage() {
                   </p>
                   <p>
                     <span className="font-medium">Payment:</span>{" "}
-                    {order.paymentMethod}
+                    {order.paymentMethod === "online" ? "Online" : "Cash on delivery"}
+                    {order.paymentStatus && ` · ${PAYMENT_LABEL[order.paymentStatus] ?? order.paymentStatus}`}
                   </p>
                 </div>
                 <div>
@@ -240,6 +266,11 @@ export default function OrderHistoryPage() {
               </div>
 
               <div className="mt-6 flex flex-wrap justify-end gap-3">
+                {order.status === "PENDING" && order.paymentStatus === "AWAITING_PAYMENT" && (
+                  <button onClick={() => payNow(order)} className="btn-primary px-5 py-2">
+                    Pay now
+                  </button>
+                )}
                 {order.status === "PENDING" && (
                   <button onClick={() => cancelOrder(order)} className="btn-ghost px-5 py-2 text-clay-600">
                     Cancel order

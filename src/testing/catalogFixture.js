@@ -37,3 +37,27 @@ export const fixtureProducts = [
 export const loadFixture =
   (products = fixtureProducts, offer = null) =>
   async () => ({ products, offer });
+
+// A stand-in for GET /api/products/search over a product list, for page tests.
+// It only does what the tests need: words in the name, aisle, in stock, paging.
+// The real matching rules are tested on the backend (ProductSearchServiceTest).
+export const fakeSearch = (products) => async ({ q, category, inStock, page = 0, size = 24 } = {}) => {
+  const words = (q ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+  const matched = products
+    .filter((p) => words.every((w) => p.name.toLowerCase().includes(w)))
+    .filter((p) => !inStock || p.inStock);
+  const categoryCounts = {};
+  matched.forEach((p) => (categoryCounts[p.category] = (categoryCounts[p.category] ?? 0) + 1));
+  const results = matched.filter((p) => !category || p.category === category);
+  return {
+    items: results.slice(page * size, page * size + size).map((p) => ({ ...p, price: Number(p.price) })),
+    page,
+    size,
+    totalItems: results.length,
+    totalPages: Math.ceil(results.length / size),
+    categoryCounts,
+    lowestPrice: null,
+    highestPrice: null,
+    didYouMean: results.length === 0 && q === "paner" ? "paneer" : null,
+  };
+};

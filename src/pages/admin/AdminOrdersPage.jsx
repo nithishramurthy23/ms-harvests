@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCatalog } from "../../context/CatalogContext";
+import { PAYMENT_LABEL } from "../../utils/payments";
 import { adminApi, errorMessage } from "./adminApi";
 
 const FILTERS = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", ""];
@@ -47,8 +48,19 @@ export default function AdminOrdersPage() {
     load();
   }, [load]);
 
+  const retryRefund = async (order) => {
+    setError("");
+    try {
+      const { paymentStatus } = await adminApi.retryRefund(order.id);
+      setOrders((list) => list.map((o) => (o.id === order.id ? { ...o, paymentStatus } : o)));
+      if (paymentStatus !== "REFUNDED") setError(`The refund for order #${order.id} failed again. Try later.`);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
   const move = async (order, next) => {
-    if (next === "CANCELLED" && !window.confirm(`Cancel order #${order.id}? Its items go back in stock.`)) return;
+    if (next === "CANCELLED" && !window.confirm(`Cancel order #${order.id}? Its items go back in stock, and a paid order is refunded.`)) return;
     setError("");
     try {
       const updated = await adminApi.setOrderStatus(order.id, next);
@@ -113,8 +125,22 @@ export default function AdminOrdersPage() {
               ))}
             </ul>
             <p className="mt-2 text-sm text-bark/55">
-              {order.shippingAddress} · {order.paymentMethod?.toUpperCase()}
+              {order.shippingAddress} · {order.paymentMethod === "online" ? "Online" : "Cash on delivery"} ·{" "}
+              <span className={order.paymentStatus === "REFUND_PENDING" ? "font-bold text-clay-600" : ""}>
+                {PAYMENT_LABEL[order.paymentStatus] ?? order.paymentStatus}
+              </span>
             </p>
+            {order.paymentStatus === "AWAITING_PAYMENT" && order.status === "PENDING" && (
+              <p className="mt-2 text-sm text-bark/60">Can be packed once the customer pays.</p>
+            )}
+            {order.paymentStatus === "REFUND_PENDING" && (
+              <button
+                onClick={() => retryRefund(order)}
+                className="mt-3 rounded-full border border-bark/15 px-4 py-2 text-sm font-medium hover:bg-bark/5"
+              >
+                Retry refund
+              </button>
+            )}
 
             {order.nextStatuses.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">

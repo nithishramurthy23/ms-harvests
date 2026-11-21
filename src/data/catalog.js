@@ -69,7 +69,7 @@ export const categoryName = (slug) => getCategory(slug)?.name ?? slug;
 
 // The backend sends `image`, `price`, `mrp` (only when discounted), `offPercent`
 // and `stock`. Numbers arrive as JSON numbers, but keep them tidy for display.
-const toShopProduct = (p) => ({
+export const toShopProduct = (p) => ({
   ...p,
   price: Number(p.price),
   mrp: p.mrp == null ? undefined : Number(p.mrp),

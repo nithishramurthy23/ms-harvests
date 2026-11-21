@@ -1,5 +1,7 @@
 package com.nithishramurthy.farm.fresh.dto;
 
+import com.nithishramurthy.farm.fresh.payment.PaymentStart;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -10,6 +12,9 @@ public class OrderResponse {
     private BigDecimal totalAmount;
     private LocalDateTime orderDate;
     private String message;
+    private String paymentStatus;
+    /** Set only for online payments that still need paying: what the browser needs to open Razorpay. */
+    private PaymentStart payment;
 
     // Constructors, Getters, Setters
     public OrderResponse() {}
@@ -20,6 +25,22 @@ public class OrderResponse {
         this.totalAmount = totalAmount;
         this.orderDate = orderDate;
         this.message = message;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public PaymentStart getPayment() {
+        return payment;
+    }
+
+    public void setPayment(PaymentStart payment) {
+        this.payment = payment;
     }
 
     public Long getOrderId() {
