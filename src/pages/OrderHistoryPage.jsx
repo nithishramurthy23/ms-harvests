@@ -71,14 +71,17 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     const fetchOrders = async () => {
+      // Not logged in (or the saved session is still being restored): the
+      // "You are not logged in" screen below covers it, and this runs again
+      // once the token arrives.
       if (!isAuthenticated || !token) {
         setLoading(false);
-        setError("Please log in to view your orders.");
         return;
       }
 
       try {
         setLoading(true);
+        setError(null);
         // The shared api client adds the auth token automatically
         const response = await api.get("/orders/history");
         setOrders(response.data);
