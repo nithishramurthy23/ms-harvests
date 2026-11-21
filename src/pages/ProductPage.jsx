@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Banknote, ChevronRight, Minus, Plus } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import { categoryName, findItem, getCategory, pricedProducts } from "../data/catalog";
+import { categoryName, getCategory } from "../data/catalog";
+import { useCatalog } from "../context/CatalogContext";
+import StockNote from "../components/StockNote";
 import ProductImage from "../components/ProductImage";
 import ProductCard from "../components/ProductCard";
 import Price from "../components/Price";
@@ -13,12 +15,15 @@ export default function ProductPage() {
   const { productId } = useParams();
   const { dispatch, quantityOf, openCart } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const { findItem, products, status } = useCatalog();
 
   const item = findItem(Number(productId));
+  if (!item && status === "loading") {
+    return <p className="page py-16 text-center text-bark/60">Loading…</p>;
+  }
   if (!item) return <NotFoundPage />;
 
   const aisle = getCategory(item.category);
-  const products = pricedProducts();
   const contents = item.isBundle
     ? item.bundleItems.map((id) => products.find((p) => p.id === id)).filter(Boolean)
     : [];
@@ -26,9 +31,10 @@ export default function ProductPage() {
     .filter((p) => p.category === item.category && p.id !== item.id && !contents.includes(p))
     .slice(0, 4);
   const inCart = quantityOf(item.id);
+  const canAdd = Math.max(0, item.stock - inCart); // how many more fit in the basket
 
   const handleAddToCart = () => {
-    dispatch({ type: "ADD_ITEM", payload: { ...item, quantity } });
+    dispatch({ type: "ADD_ITEM", payload: { ...item, quantity: Math.min(quantity, canAdd) } });
     setQuantity(1);
     openCart();
   };
@@ -64,30 +70,43 @@ export default function ProductPage() {
             )}
           </div>
 
+          {item.inStock && <StockNote item={item} className="mt-3" />}
+
           <p className="mt-6 text-lg leading-relaxed text-bark/75">{item.blurb ?? aisle?.about}</p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <div className="flex h-12 items-center rounded-full border border-bark/15 bg-paper">
+          {!item.inStock ? (
+            <p className="mt-8 rounded-2xl bg-bark/5 px-5 py-4 font-medium text-bark/70">
+              Out of stock. We&apos;ll have more after the next harvest.
+            </p>
+          ) : (
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <div className="flex h-12 items-center rounded-full border border-bark/15 bg-paper">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  aria-label="Decrease quantity"
+                  className="flex h-full w-12 items-center justify-center rounded-full hover:bg-bark/5"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="w-8 text-center font-medium tabular-nums">{quantity}</span>
+                <button
+                  onClick={() => setQuantity(Math.min(quantity + 1, Math.max(1, canAdd)))}
+                  disabled={quantity >= canAdd}
+                  aria-label="Increase quantity"
+                  className="flex h-full w-12 items-center justify-center rounded-full hover:bg-bark/5 disabled:opacity-40"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
               <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                aria-label="Decrease quantity"
-                className="flex h-full w-12 items-center justify-center rounded-full hover:bg-bark/5"
+                onClick={handleAddToCart}
+                disabled={canAdd === 0}
+                className="btn-primary h-12 flex-1 disabled:opacity-50 sm:flex-none sm:px-10"
               >
-                <Minus className="h-4 w-4" />
-              </button>
-              <span className="w-8 text-center font-medium tabular-nums">{quantity}</span>
-              <button
-                onClick={() => setQuantity(quantity + 1)}
-                aria-label="Increase quantity"
-                className="flex h-full w-12 items-center justify-center rounded-full hover:bg-bark/5"
-              >
-                <Plus className="h-4 w-4" />
+                {canAdd === 0 ? "All available are in your basket" : `Add to basket · ₹${item.price * quantity}`}
               </button>
             </div>
-            <button onClick={handleAddToCart} className="btn-primary h-12 flex-1 sm:flex-none sm:px-10">
-              Add to basket · ₹{item.price * quantity}
-            </button>
-          </div>
+          )}
           {inCart > 0 && <p className="mt-3 text-sm text-green-700">{inCart} already in your basket.</p>}
 
           <div className="mt-8 space-y-4 rounded-2xl bg-paper p-5 ring-1 ring-bark/10">

@@ -1,10 +1,8 @@
-// One place for the shop's catalogue: categories, products, baskets and
-// today's prices, so every page shows the same numbers.
+// The shop's catalogue. Aisle text and icons live here; products, prices and
+// stock come from the backend (GET /api/products) and are combined with the
+// baskets by buildCatalog(), so every page shows the same numbers.
 import { Apple, Carrot, Cherry, Egg, Leaf, Milk } from "lucide-react";
-import { categoryProducts } from "./products";
-import { bundles } from "./bundles";
-import { getTodayDiscount } from "../utils/discounts";
-import { calculateBundlePrice } from "../utils/bundleUtils";
+import { bundles as basketDefinitions } from "./bundles";
 
 export const categories = [
   {
@@ -65,42 +63,54 @@ export const categories = [
   },
 ];
 
-export const allProducts = Object.values(categoryProducts).flat();
-
 export const getCategory = (slug) => categories.find((c) => c.slug === slug);
 
 export const categoryName = (slug) => getCategory(slug)?.name ?? slug;
 
-// Today's price for a single product, with the day's category offer applied.
-export const withTodayPrice = (product) => {
-  const offer = getTodayDiscount();
-  if (offer && product.category === offer.category) {
-    const offerPrice = Math.round(product.price - (product.price * offer.percent) / 100);
-    return { ...product, mrp: product.price, price: offerPrice, offPercent: offer.percent };
-  }
-  return product;
-};
+// The backend sends `image`, `price`, `mrp` (only when discounted), `offPercent`
+// and `stock`. Numbers arrive as JSON numbers, but keep them tidy for display.
+const toShopProduct = (p) => ({
+  ...p,
+  price: Number(p.price),
+  mrp: p.mrp == null ? undefined : Number(p.mrp),
+  offPercent: p.offPercent == null ? undefined : Number(p.offPercent),
+  stock: p.stock ?? 0,
+  inStock: p.inStock ?? (p.stock ?? 0) > 0,
+});
 
-// A basket priced from its products, with the full (pre-offer) price kept as mrp.
-export const withBundlePrice = (bundle) => {
-  const offer = getTodayDiscount();
-  const mrp = calculateBundlePrice(bundle.bundleItems);
-  const price = calculateBundlePrice(bundle.bundleItems, offer?.category, offer?.percent || 0);
+// A basket costs the sum of today's prices of what's inside, and can only be
+// bought while everything inside is in stock.
+export const priceBundle = (bundle, productsById) => {
+  const contents = bundle.bundleItems.map((id) => productsById.get(id)).filter(Boolean);
+  const price = contents.reduce((sum, p) => sum + p.price, 0);
+  const mrp = contents.reduce((sum, p) => sum + (p.mrp ?? p.price), 0);
+  const complete = contents.length === bundle.bundleItems.length;
+  const stock = complete && contents.length > 0 ? Math.min(...contents.map((p) => p.stock)) : 0;
   return {
     ...bundle,
     isBundle: true,
     weight: `${bundle.bundleItems.length} items`,
     price,
     ...(price < mrp ? { mrp } : {}),
+    stock,
+    inStock: stock > 0,
   };
 };
 
-export const pricedProducts = () => allProducts.map(withTodayPrice);
-export const pricedBundles = () => bundles.map(withBundlePrice);
+// Everything a page needs from the catalogue, built once per API response.
+export const buildCatalog = (apiProducts = [], offer = null, bundles = basketDefinitions) => {
+  const products = apiProducts.map(toShopProduct);
+  const productsById = new Map(products.map((p) => [p.id, p]));
+  const pricedBundles = bundles.map((b) => priceBundle(b, productsById));
+  const bundlesById = new Map(pricedBundles.map((b) => [b.id, b]));
 
-export const findItem = (id) => {
-  const bundle = bundles.find((b) => b.id === id);
-  if (bundle) return withBundlePrice(bundle);
-  const product = allProducts.find((p) => p.id === id);
-  return product ? withTodayPrice(product) : null;
+  return {
+    products,
+    bundles: pricedBundles,
+    offer: offer && offer.category ? { category: offer.category, percent: Number(offer.percent) } : null,
+    productIds: new Set(productsById.keys()),
+    findItem: (id) => bundlesById.get(id) ?? productsById.get(id) ?? null,
+    // Unknown items (catalogue not loaded yet) are not capped.
+    stockOf: (id) => (bundlesById.get(id) ?? productsById.get(id))?.stock ?? Infinity,
+  };
 };

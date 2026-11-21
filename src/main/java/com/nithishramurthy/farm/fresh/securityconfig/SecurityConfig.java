@@ -3,6 +3,7 @@ package com.nithishramurthy.farm.fresh.securityconfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager; // Can be removed if using AuthenticationConfiguration
@@ -96,6 +97,7 @@ public class SecurityConfig {
                     "/", "/api/auth/**", "/api/contact", "/api/status", "/actuator/health/**",
                     "/swagger-ui/**", "/v3/api-docs/**"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/offers/today").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

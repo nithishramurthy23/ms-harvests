@@ -3,11 +3,13 @@ import { useCart } from "../context/CartContext";
 import { X, Plus, Minus, ShoppingBasket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ProductImage from "./ProductImage";
+import { useCatalog } from "../context/CatalogContext";
 
 // Contents of the cart drawer: line items with quantity controls, the total
 // and the way to checkout.
 export default function Cart({ onClose }) {
   const { state, dispatch } = useCart();
+  const { stockOf } = useCatalog();
   const navigate = useNavigate();
   const cartRef = useRef();
 
@@ -100,12 +102,20 @@ export default function Cart({ onClose }) {
                     <span className="w-8 text-center text-sm font-medium tabular-nums">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      disabled={item.quantity >= stockOf(item.id)}
                       aria-label={`Increase ${item.name}`}
-                      className="rounded-full p-1.5 hover:bg-bark/5"
+                      className="rounded-full p-1.5 hover:bg-bark/5 disabled:opacity-40"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
+                  {item.quantity > stockOf(item.id) && (
+                    <p className="mt-1 text-xs font-medium text-clay-600">
+                      {stockOf(item.id) === 0
+                        ? "Sold out since you added it. Remove it to check out."
+                        : `Only ${stockOf(item.id)} left. Lower the quantity to check out.`}
+                    </p>
+                  )}
                 </div>
               </li>
             ))}

@@ -141,7 +141,7 @@ INSERT INTO categories (name, description) VALUES
 ('Eggs', 'Farm fresh eggs'),
 ('Honey & Jams', 'Sweet natural preserves');
 
--- Discount rules (match src/utils/discounts.js, which is what customers see)
+-- Discount rules (the website shows today's via GET /api/offers/today)
 INSERT INTO discount_rules (day_of_week, category_id, discount_percent)
 VALUES
 ('MONDAY', (SELECT id FROM categories WHERE name = 'Vegetables'), 15),
@@ -151,8 +151,8 @@ VALUES
 ('FRIDAY', (SELECT id FROM categories WHERE name = 'Honey & Jams'), 18);
 
 -- Products
--- IDs match src/data/products.js so the frontend cart and the backend agree.
--- Prices here are what customers are charged; keep them in sync with the frontend.
+-- The website loads these through GET /api/products. Basket definitions in
+-- src/data/bundles.js refer to these ids.
 INSERT INTO products (id, name, description, price, original_price, weight, image_url, category_id, stock_quantity)
 VALUES
 (101, 'Ooty Plums', NULL, 199.00, 199.00, '1 kg', 'https://images.hollandandbarrettimages.co.uk/health-hub/Batch1/plums-wood-730486915.jpg',

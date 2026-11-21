@@ -24,7 +24,7 @@ Browser ──► nginx ──┬──► backend copy 1 ─┐
 
 **Decision.** `OrderService.placeOrder` ignores the client's price. For every line it loads the product from the database and asks `ProductService.getCurrentPrice` for today's price: the original price minus any active discount rule for that category and weekday. The total is the sum of those server-side prices. The `price` field is still accepted in the request so older clients don't break, but it is never read.
 
-**Tradeoff.** The discount rules exist twice, in the `discount_rules` table and in `src/utils/discounts.js` for display. If the two drift apart, a customer could see one price and be charged another. The fix is to have the frontend fetch prices from an API instead of hard-coding them. That is on the list below.
+**Tradeoff.** The website used to keep its own copy of products and discount rules, so the price shown could drift from the price charged. It now loads both from the API (`GET /api/products` returns today's price, computed by the same `getCurrentPrice`), so there's one source of truth. The cost is one extra request when the site opens.
 
 **Tested by.** `OrderServiceTest.totalIsCalculatedFromServerPricesNotClientPrices` and the integration test, which sends a fake price of 1 and expects the real total.
 
@@ -162,7 +162,7 @@ All secrets (database password, JWT secret, Gmail app password) and per-environm
 Roughly in order of value:
 
 1. **Database migrations with Flyway** instead of `spring.jpa.hibernate.ddl-auto=update`, so schema changes are versioned, reviewed, and repeatable.
-2. **Serve the catalogue from the API.** Products and discounts are still hard-coded in `src/data/` for display, duplicating the database (see decision 1).
+2. **Admin screens** for products, stock and order status, with role checks, so nothing needs SQL.
 3. **Idempotency key on place-order**, so a client retry after a network error can't create a second order.
 4. **Transactional outbox for email** (see decision 5).
 5. **Rate limit OTP sending and login attempts.**

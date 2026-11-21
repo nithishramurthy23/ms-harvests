@@ -343,35 +343,30 @@ ms-harvests/
 
 ## 10. Changing products and prices
 
-The product list lives in **two places**, and they must match:
+Products, prices and stock live in **the database only**. The website loads them from `GET /api/products` every time it opens, so a change shows up on the next page load. Nothing in the frontend needs editing or rebuilding.
 
-| Where | What it controls |
-| --- | --- |
-| `src/data/products.js` (and `bundles.js` for baskets) | What the website shows: names, pictures, prices, weights. |
-| The `products` table in MySQL (first filled from `Untitled.sql`) | What the customer is actually charged, and how much stock is left. The backend ignores prices sent by the browser ([why](design-decisions.md#1-the-server-decides-the-price)). |
+There's no admin screen yet, so for now make changes with SQL. For an app that's already running, use SQL rather than re-running `Untitled.sql` (which wipes users and orders):
 
-Each product has the same `id` in both. To add or change a product:
+```sh
+# With Docker (enter DB_PASSWORD when asked); without Docker, drop "docker compose exec mysql"
+docker compose exec mysql mysql -uroot -p farm_fresh
+```
+```sql
+UPDATE products SET price = 219.00, original_price = 219.00 WHERE id = 101;  -- change a price
+UPDATE products SET stock_quantity = 50 WHERE id = 101;                      -- restock
+UPDATE products SET stock_quantity = 0 WHERE id = 101;                       -- show as "Out of stock"
+INSERT INTO products (name, price, original_price, weight, image_url, category_id, stock_quantity)
+VALUES ('Kiwi', 149.00, 149.00, '500g', 'https://...',
+        (SELECT id FROM categories WHERE name = 'Fruits'), 100);              -- new product
+```
 
-1. Edit `src/data/products.js`.
-2. Make the same change in the database. For an app that's already running, use SQL rather than re-running `Untitled.sql` (which wipes users and orders):
+Add the same change to `Untitled.sql` if a fresh database should get it too.
 
-   ```sh
-   # With Docker (enter DB_PASSWORD when asked); without Docker, drop "docker compose exec mysql"
-   docker compose exec mysql mysql -uroot -p farm_fresh
-   ```
-   ```sql
-   UPDATE products SET price = 219.00 WHERE id = 101;          -- change a price
-   UPDATE products SET stock_quantity = 50 WHERE id = 101;     -- restock
-   INSERT INTO products (id, name, price, original_price, weight, image_url, category_id, stock_quantity)
-   VALUES (110, 'Kiwi', 149.00, 149.00, '500g', 'https://...',
-           (SELECT id FROM categories WHERE name = 'Fruits'), 100);  -- new product
-   ```
-3. Also add the change to `Untitled.sql`, so a fresh database gets it too.
-4. Rebuild the frontend (`docker compose up -d --build`, or nothing to do with `npm start`).
+A product with `stock_quantity = 0` stays on the site with an "Out of stock" label and a disabled Add button. When 5 or fewer are left, it shows "Only N left", and customers can't put more in the basket than there is.
 
-If the website and the database disagree, checkout charges the database price, and an `id` missing from the database makes checkout fail.
+**Baskets** are defined in `src/data/bundles.js` as a list of product ids. Their price is the sum of today's prices of what's inside, and a basket is out of stock when anything inside is.
 
-**Day-of-week discounts** are in the `discount_rules` table and in `src/utils/discounts.js`. Keep those in step the same way.
+**Day-of-week discounts** are in the `discount_rules` table. The website gets today's offer from `GET /api/offers/today`.
 
 **Order statuses** (`PENDING`, `PROCESSING`, `SHIPPED`, `DELIVERED`, `CANCELLED`) have no admin screen yet. Change one with SQL, for example `UPDATE orders SET status = 'SHIPPED' WHERE id = 12;`.
 

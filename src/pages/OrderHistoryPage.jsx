@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api/axiosInstance";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import { findItem } from "../data/catalog";
+import { useCatalog } from "../context/CatalogContext";
 import { useNavigate } from "react-router-dom";
 import { Package, Truck, CheckCircle, XCircle } from "lucide-react"; // Icons for status
 
@@ -14,13 +14,17 @@ export default function OrderHistoryPage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { dispatch, openCart } = useCart();
+  const { findItem } = useCatalog();
 
   // Put the products from a past order back in the cart at today's prices.
   const orderAgain = (order) => {
     (order.orderItems || []).forEach((line) => {
       const product = findItem(line.productId);
-      if (product) {
-        dispatch({ type: "ADD_ITEM", payload: { ...product, quantity: line.quantity } });
+      if (product?.inStock) {
+        dispatch({
+          type: "ADD_ITEM",
+          payload: { ...product, quantity: Math.min(line.quantity, product.stock) },
+        });
       }
     });
     openCart();

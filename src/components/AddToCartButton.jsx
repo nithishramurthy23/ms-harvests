@@ -8,6 +8,19 @@ export default function AddToCartButton({ item, size = "md" }) {
   const quantity = quantityOf(item.id);
   const height = size === "sm" ? "h-9 text-sm" : "h-11";
 
+  if (!item.inStock) {
+    return (
+      <button
+        type="button"
+        disabled
+        aria-label={`${item.name} is out of stock`}
+        className={`${height} w-full cursor-not-allowed rounded-full border border-bark/15 font-medium text-bark/45`}
+      >
+        Out of stock
+      </button>
+    );
+  }
+
   if (quantity === 0) {
     return (
       <button
@@ -42,8 +55,10 @@ export default function AddToCartButton({ item, size = "md" }) {
       <button
         type="button"
         onClick={() => setQuantity(quantity + 1)}
+        disabled={quantity >= item.stock}
         aria-label={`Add one more ${item.name}`}
-        className="flex h-full w-11 items-center justify-center rounded-full hover:bg-green-800"
+        title={quantity >= item.stock ? `Only ${item.stock} available` : undefined}
+        className="flex h-full w-11 items-center justify-center rounded-full hover:bg-green-800 disabled:opacity-40 disabled:hover:bg-transparent"
       >
         <Plus className="h-4 w-4" />
       </button>

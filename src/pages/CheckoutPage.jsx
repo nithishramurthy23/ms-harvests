@@ -5,11 +5,13 @@ import { useNavigate } from "react-router-dom";
 import { CheckCircle, Truck } from "lucide-react";
 import api from "../api/axiosInstance";
 import { toOrderItems } from "../utils/orderItems";
+import { useCatalog } from "../context/CatalogContext";
 
 // Checkout in two steps: fill in shipping details and request an OTP,
 // then enter the OTP from the email to place the order (cash on delivery).
 export default function CheckoutPage() {
   const { state, dispatch } = useCart();
+  const { productIds, reload: reloadCatalog } = useCatalog();
   const { user, isAuthenticated, token } = useAuth();
   const navigate = useNavigate();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -120,7 +122,7 @@ export default function CheckoutPage() {
         expectedDeliveryDate: new Date().toISOString().split("T")[0], // Placeholder
       },
       // Bundles are sent as their individual products; the server prices everything
-      items: toOrderItems(state.items),
+      items: toOrderItems(state.items, productIds.size ? productIds : null),
       paymentMethod,
       orderConfirmationOtp: orderOtp,
     };
@@ -137,6 +139,7 @@ export default function CheckoutPage() {
       );
       setSuccessMessage(response.data.message || "Order placed successfully!");
       dispatch({ type: "CLEAR_CART" });
+      reloadCatalog(); // stock just changed
       setShowSuccess(true);
       setTimeout(() => {
         navigate("/");

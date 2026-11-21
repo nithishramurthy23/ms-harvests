@@ -45,6 +45,14 @@ public class Category {
         this.id = id;
     }
 
+    /**
+     * URL-friendly name the frontend uses for aisles and offers, for example
+     * "Herbs & Spices" becomes "herbs-&-spices".
+     */
+    public String slug() {
+        return name == null ? null : name.trim().toLowerCase().replace(' ', '-');
+    }
+
     public String getName() {
         return name;
     }

@@ -1,15 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { toOrderItems } from "./orderItems";
-
-vi.mock("../data/products", () => ({
-  categoryProducts: {
-    fruits: [
-      { id: 101, name: "Plums", price: 199 },
-      { id: 102, name: "Bananas", price: 49 },
-    ],
-    vegetables: [{ id: 201, name: "Carrots", price: 40 }],
-  },
-}));
 
 describe("toOrderItems", () => {
   it("passes single products through", () => {
@@ -42,7 +32,7 @@ describe("toOrderItems", () => {
   it("drops bundle entries that are not real products", () => {
     const bundle = { id: 1, bundleItems: [101, 999], quantity: 1 };
 
-    expect(toOrderItems([bundle])).toEqual([{ productId: 101, quantity: 1 }]);
+    expect(toOrderItems([bundle], new Set([101, 102]))).toEqual([{ productId: 101, quantity: 1 }]);
   });
 
   it("returns nothing for an empty cart", () => {
