@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrderFlowIntegrationTest {
 
     private static final String EMAIL = "asha@example.com";
+    private static final String OTHER_EMAIL = "ravi@example.com";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -185,6 +187,31 @@ class OrderFlowIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // Order lines must only be reachable through the owner's order. Another
+    // customer guessing an order item id must not be able to read or delete it.
+    @Test
+    void otherCustomersCannotReadOrDeleteMyOrderItems() throws Exception {
+        String ashaToken = registerAndVerify();
+        requestOrderOtp(ashaToken);
+        placeOrder(ashaToken, currentOtp()).andExpect(status().isCreated());
+
+        Long itemId = orderItemRepository.findAll().get(0).getId();
+        Long orderId = orderRepository.findAll().get(0).getId();
+
+        String raviToken = registerAndVerify(OTHER_EMAIL);
+
+        mockMvc.perform(get("/api/order-items/" + itemId).header("Authorization", "Bearer " + raviToken))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/order-items/order/" + orderId).header("Authorization", "Bearer " + raviToken))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(delete("/api/order-items/" + itemId).header("Authorization", "Bearer " + raviToken))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/orders/" + orderId).header("Authorization", "Bearer " + raviToken))
+                .andExpect(status().isForbidden());
+
+        assertThat(orderItemRepository.existsById(itemId)).isTrue();
+    }
+
     private ResultActions placeOrder(String token, String otp) throws Exception {
         return mockMvc.perform(post("/api/orders/place-order")
                 .header("Authorization", "Bearer " + token)
@@ -203,11 +230,15 @@ class OrderFlowIntegrationTest {
     }
 
     private String registerAndVerify() throws Exception {
+        return registerAndVerify(EMAIL);
+    }
+
+    private String registerAndVerify(String email) throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
                                 "name", "Asha",
-                                "email", EMAIL,
+                                "email", email,
                                 "password", "Secret123!",
                                 "phone", "9876543210",
                                 "address", "12 MG Road"))))
@@ -215,7 +246,7 @@ class OrderFlowIntegrationTest {
 
         MvcResult verified = mockMvc.perform(post("/api/auth/verify-otp")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("email", EMAIL, "otp", currentOtp()))))
+                        .content(json(Map.of("email", email, "otp", currentOtp(email)))))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -233,7 +264,11 @@ class OrderFlowIntegrationTest {
 
     // Stands in for the customer reading the OTP from their inbox.
     private String currentOtp() {
-        return userRepository.findByEmail(EMAIL).orElseThrow().getOtpCode();
+        return currentOtp(EMAIL);
+    }
+
+    private String currentOtp(String email) {
+        return userRepository.findByEmail(email).orElseThrow().getOtpCode();
     }
 
     private Map<String, Object> orderBody(String paymentMethod, String otp, int quantity, Integer clientPrice) {
