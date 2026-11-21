@@ -1,5 +1,3 @@
-// src/main/java/com/nithishramurthy/farm/fresh/service/AuthService.java
-
 package com.nithishramurthy.farm.fresh.service;
 
 import com.nithishramurthy.farm.fresh.dto.AuthResponse;
@@ -7,24 +5,25 @@ import com.nithishramurthy.farm.fresh.dto.LoginRequest;
 import com.nithishramurthy.farm.fresh.dto.UpdateProfileRequest;
 import com.nithishramurthy.farm.fresh.dto.UserRegistrationRequest;
 import com.nithishramurthy.farm.fresh.entity.User;
+import com.nithishramurthy.farm.fresh.exception.TooManyRequestsException;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
 import com.nithishramurthy.farm.fresh.securityconfig.CustomUserDetailsService;
 import com.nithishramurthy.farm.fresh.securityconfig.GoogleTokenVerifier;
 import com.nithishramurthy.farm.fresh.securityconfig.JwtTokenProvider;
-
-import java.time.Instant;
-import java.util.Random;
-import java.util.UUID;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.core.userdetails.UserDetails;
+
+import java.time.Instant;
+import java.util.Random;
+import java.util.UUID;
 
 /** Account logic: sign-up, login, OTP verification, password reset and profile updates. */
 @Service
@@ -88,11 +87,17 @@ public class AuthService {
      * Unverified accounts get a new activation OTP instead.
      */
     public AuthResponse authenticateUser(LoginRequest request) {
+        // Same answer for "no such account" and "wrong password", so login can't be
+        // used to find out who has an account.
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + request.getEmail()));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password."));
 
         if (!user.isEnabled()) {
-            otpService.generateAndSendOtp(user.getEmail(), "Account Activation OTP", "account activation");
+            try {
+                otpService.generateAndSendOtp(user.getEmail(), "Account Activation OTP", "account activation");
+            } catch (TooManyRequestsException e) {
+                // a code went out a moment ago; the message below still applies
+            }
             throw new IllegalArgumentException("Account not verified. An OTP has been sent to your email for activation.");
         }
 

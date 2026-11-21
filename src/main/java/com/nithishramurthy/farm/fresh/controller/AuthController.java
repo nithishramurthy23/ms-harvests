@@ -1,19 +1,18 @@
-// src/main/java/com/nithishramurthy/farm/fresh/controller/AuthController.java
-
 package com.nithishramurthy.farm.fresh.controller;
 
 import com.nithishramurthy.farm.fresh.details.CustomUserDetails;
 import com.nithishramurthy.farm.fresh.dto.AuthResponse;
 import com.nithishramurthy.farm.fresh.dto.GoogleLoginRequest;
 import com.nithishramurthy.farm.fresh.dto.LoginRequest;
-import com.nithishramurthy.farm.fresh.dto.UpdateProfileRequest;
-import com.nithishramurthy.farm.fresh.dto.UserRegistrationRequest;
-import com.nithishramurthy.farm.fresh.dto.SendOtpRequest;
-import com.nithishramurthy.farm.fresh.dto.VerifyOtpRequest;
 import com.nithishramurthy.farm.fresh.dto.PasswordResetRequest;
 import com.nithishramurthy.farm.fresh.dto.RequestPasswordResetRequest;
+import com.nithishramurthy.farm.fresh.dto.SendOtpRequest;
+import com.nithishramurthy.farm.fresh.dto.UpdateProfileRequest;
 import com.nithishramurthy.farm.fresh.dto.UserProfileResponse;
+import com.nithishramurthy.farm.fresh.dto.UserRegistrationRequest;
+import com.nithishramurthy.farm.fresh.dto.VerifyOtpRequest;
 import com.nithishramurthy.farm.fresh.entity.User;
+import com.nithishramurthy.farm.fresh.exception.TooManyRequestsException;
 import com.nithishramurthy.farm.fresh.securityconfig.GoogleTokenVerifier;
 import com.nithishramurthy.farm.fresh.service.AuthService;
 import com.nithishramurthy.farm.fresh.service.OtpService;
@@ -31,6 +30,9 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final String CODE_SENT_IF_ACCOUNT_EXISTS =
+            "If an account exists for this email, we've sent it a code. It's valid for 5 minutes.";
 
     private final AuthService authService;
     private final OtpService otpService;
@@ -99,9 +101,11 @@ public class AuthController {
     public ResponseEntity<?> sendOtp(@Valid @RequestBody SendOtpRequest sendOtpRequest) {
         try {
             otpService.generateAndSendOtp(sendOtpRequest.getEmail(), "Login Confirmation OTP", "login confirmation");
-            return ResponseEntity.ok(Map.of("message", "OTP sent successfully to your email."));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return ResponseEntity.ok(Map.of("message", CODE_SENT_IF_ACCOUNT_EXISTS));
+        } catch (IllegalArgumentException | TooManyRequestsException e) {
+            // Unknown email, or this email asked too often: same answer either way, so the
+            // reply never tells anyone whether an account exists. Nothing is sent.
+            return ResponseEntity.ok(Map.of("message", CODE_SENT_IF_ACCOUNT_EXISTS));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", "Failed to send OTP: " + e.getMessage()));
         }
@@ -125,9 +129,9 @@ public class AuthController {
     public ResponseEntity<?> resendOtp(@Valid @RequestBody SendOtpRequest resendRequest) {
         try {
             otpService.generateAndSendOtp(resendRequest.getEmail(), "Account Activation OTP", "account activation");
-            return ResponseEntity.ok(Map.of("message", "New OTP sent to your email."));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return ResponseEntity.ok(Map.of("message", CODE_SENT_IF_ACCOUNT_EXISTS));
+        } catch (IllegalArgumentException | TooManyRequestsException e) {
+            return ResponseEntity.ok(Map.of("message", CODE_SENT_IF_ACCOUNT_EXISTS));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", "Failed to resend OTP: " + e.getMessage()));
         }
@@ -139,7 +143,7 @@ public class AuthController {
         try {
             authService.forgotPassword(request.getEmail());
             return ResponseEntity.ok(Map.of("message", "If an account exists, an OTP has been sent to your email."));
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | TooManyRequestsException e) {
             return ResponseEntity.ok(Map.of("message", "If an account exists, an OTP has been sent to your email."));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", "Failed to process forgot password request: " + e.getMessage()));

@@ -302,6 +302,8 @@ All settings come from `.env` (or real environment variables).
 | `RAZORPAY_WEBHOOK_SECRET` | backend, checks that payment webhooks really come from Razorpay | empty |
 | `FRONTEND_URL` | backend, the shop's address, used for the "See your orders" link in emails ([order emails](order-emails.md)) | `http://localhost:5173` |
 | `PAY_WITHIN_MINUTES` | backend, unpaid online orders are cancelled after this long | `30` |
+| `RATE_LIMIT_ENABLED` | backend, per-address limit on the login and code endpoints ([rate limits](rate-limits.md)) | `true` |
+| `RATE_LIMIT_SEND_PER_10_MIN`, `RATE_LIMIT_CHECK_PER_10_MIN` | backend, code requests and password/code checks allowed from one address in 10 minutes | `10`, `30` |
 | `CORS_ALLOWED_ORIGINS` | backend, comma-separated frontend URLs allowed to call it | `http://localhost:5173,http://localhost:3000` |
 | `PORT` | backend port | `8080` |
 | `VITE_API_URL` | frontend, where to find the backend | `http://localhost:8080/api` |

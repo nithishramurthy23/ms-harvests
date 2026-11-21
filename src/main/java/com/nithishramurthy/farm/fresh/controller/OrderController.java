@@ -1,5 +1,3 @@
-// src/main/java/com/nithishramurthy/farm/fresh/controller/OrderController.java
-
 package com.nithishramurthy.farm.fresh.controller;
 
 import com.nithishramurthy.farm.fresh.details.CustomUserDetails;
@@ -8,6 +6,7 @@ import com.nithishramurthy.farm.fresh.dto.OrderRequest;
 import com.nithishramurthy.farm.fresh.dto.OrderResponse;
 import com.nithishramurthy.farm.fresh.dto.SendOtpRequest;
 import com.nithishramurthy.farm.fresh.exception.ResourceNotFoundException;
+import com.nithishramurthy.farm.fresh.exception.TooManyRequestsException;
 import com.nithishramurthy.farm.fresh.service.OrderFulfilmentService;
 import com.nithishramurthy.farm.fresh.service.OrderService;
 
@@ -49,6 +48,10 @@ public class OrderController {
 
             orderService.initiateOrderConfirmation(userEmail);
             return ResponseEntity.ok(Map.of("message", "OTP sent to your email for order confirmation."));
+        } catch (TooManyRequestsException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
+                    .body(Map.of("message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (Exception e) {

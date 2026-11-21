@@ -41,6 +41,17 @@ public class User {
 
     @Column(name = "failed_attempts")
     private int failedAttempts = 0;
+
+    // Limits how often a code can be emailed to this address (OtpService). Stored
+    // in the database, not in memory, so the limit holds across every backend copy.
+    @Column(name = "otp_last_sent_at")
+    private Instant otpLastSentAt;
+
+    @Column(name = "otp_window_started_at")
+    private Instant otpWindowStartedAt;
+
+    @Column(name = "otp_sends_in_window")
+    private Integer otpSendsInWindow;
     // Constructors
     public User() {}
 
@@ -147,6 +158,30 @@ public class User {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public Instant getOtpLastSentAt() {
+        return otpLastSentAt;
+    }
+
+    public void setOtpLastSentAt(Instant otpLastSentAt) {
+        this.otpLastSentAt = otpLastSentAt;
+    }
+
+    public Instant getOtpWindowStartedAt() {
+        return otpWindowStartedAt;
+    }
+
+    public void setOtpWindowStartedAt(Instant otpWindowStartedAt) {
+        this.otpWindowStartedAt = otpWindowStartedAt;
+    }
+
+    public int getOtpSendsInWindow() {
+        return otpSendsInWindow == null ? 0 : otpSendsInWindow;
+    }
+
+    public void setOtpSendsInWindow(int otpSendsInWindow) {
+        this.otpSendsInWindow = otpSendsInWindow;
     }
 
     public int getFailedAttempts() {
