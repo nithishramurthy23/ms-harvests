@@ -11,11 +11,17 @@ An online store for fresh produce from farms in the Nilgiris. Customers browse p
 
 It's a Spring Boot REST API with a React frontend. The backend runs as several stateless copies behind nginx, and it was load-tested with k6 to make sure it never oversells stock.
 
-<!-- Screenshots: add images to docs/screenshots/ and uncomment.
-| Home | Product | Checkout | Order history |
-|---|---|---|---|
-| ![Home](docs/screenshots/home.png) | ![Product](docs/screenshots/product.png) | ![Checkout](docs/screenshots/checkout.png) | ![Orders](docs/screenshots/orders.png) |
--->
+| Shop | Product |
+|---|---|
+| ![The fruit aisle, with aisle counts, sorting and price filters](docs/screenshots/shop.jpg) | ![A product page with quantity and add to basket](docs/screenshots/product.jpg) |
+| **Checkout** | **Your orders** |
+| ![Checkout with saved details and cash on delivery](docs/screenshots/checkout.jpg) | ![Order history with status, payment and order again](docs/screenshots/orders.jpg) |
+
+| Store dashboard (admins and the owner) |
+|---|
+| ![The admin orders board, with a new order ready to pack](docs/screenshots/admin.jpg) |
+
+<sub>Taken from the running app with sample data (`Untitled.sql` plus a few demo orders).</sub>
 
 ## Highlights
 
