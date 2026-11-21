@@ -36,6 +36,19 @@ export default function CheckoutPage() {
     pincode: "",
     phone: user?.phone || "",
   });
+  // On a reload the page renders before the saved login is restored, so the
+  // fields above start empty. Fill in whatever is still empty once it arrives;
+  // name and email are read-only when logged in, so they must come from here.
+  useEffect(() => {
+    if (!user) return;
+    setFormData((current) => ({
+      ...current,
+      name: current.name || user.name || "",
+      email: current.email || user.email || "",
+      address: current.address || user.address || "",
+      phone: current.phone || user.phone || "",
+    }));
+  }, [user]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
