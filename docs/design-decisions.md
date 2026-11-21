@@ -236,13 +236,35 @@ All filters live in the URL, so results can be shared and the back button works.
 
 Plain-language version: [search.md](search.md).
 
+## 14. Order emails from events, sent after commit
+
+**Problem.** The only order email was the confirmation, sent straight from checkout code. Customers heard nothing when an order shipped, arrived, was cancelled or was refunded. Adding a mail call to every place that changes an order would tie order logic to email, and an email could go out for a change that later rolled back.
+
+**Decision.** The order code publishes an `OrderEmailEvent(orderId, type)`. `OrderEmailListener` handles it with `@TransactionalEventListener`, so it runs only after the transaction commits. It loads the order fresh in its own read-only transaction, builds the email with `OrderEmailTemplates`, and hands it to `MailDispatcher`, which sends it on a background thread with retries. There are five types: confirmed (for online orders, only once paid), shipped, delivered, cancelled and refunded. Each email is multipart (text and HTML) built from the same sentences, with customer-supplied text HTML-escaped.
+
+Two details came out of the tests:
+- Cash-on-delivery checkout publishes after its `TransactionTemplate` has committed, when there's no transaction left. The listener uses `fallbackExecution = true` so it still runs.
+- Cancelling a paid order publishes the "cancelled" email *before* the refund event. After-commit listeners run in the order they were registered, and the refund listener sends its own "refund sent" email. The first version had them the wrong way round, so customers were told about the refund before the cancellation.
+
+**Alternatives considered.**
+- *Calling `MailService` directly where orders change.* Simple, but it can email about a change that then rolls back, and every new channel (SMS, WhatsApp) means editing order code again.
+- *A transactional outbox table.* Survives a crash between commit and send, which this design doesn't. It's the next step, and the event and listener stay the same; only the listener's job changes to "write a row".
+- *Kafka.* The pom already has spring-kafka, and it would let a separate service send emails. One app with one database doesn't need a broker yet.
+- *Thymeleaf templates.* Nicer for designers, but five short emails don't justify another dependency. A small builder keeps the text and HTML versions in step.
+
+**Tradeoff.** A crash right after commit loses that email (see the outbox above). Packing sends no email, on purpose.
+
+**Tested by.** `OrderEmailTemplatesTest` (wording per type and payment status, HTML escaping, Indian digit grouping) and `OrderEmailIntegrationTest`. The integration test checks the full COD sequence, that an online order gets "confirmed" only once paid (even when reported twice), the cancelled-then-refunded order, no email for failed checkouts or refused status changes, and that a mail failure doesn't break the order.
+
+Plain-language version: [order-emails.md](order-emails.md).
+
 ## What I'd do next
 
 Roughly in order of value:
 
 1. **Database migrations with Flyway** instead of `spring.jpa.hibernate.ddl-auto=update`, so schema changes are versioned, reviewed, and repeatable.
 2. **Move the customer endpoints onto the shared error handler** that the admin API uses.
-3. **Transactional outbox for email** (see decision 5).
+3. **Transactional outbox** for order emails and refunds (see decisions 5, 12 and 14).
 4. **Rate limit OTP sending and login attempts.**
 5. **Refresh tokens** and shorter-lived access tokens (see decision 3).
 6. **Testcontainers** to run integration tests against real MySQL instead of H2.

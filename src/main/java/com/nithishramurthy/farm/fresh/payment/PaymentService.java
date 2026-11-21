@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nithishramurthy.farm.fresh.entity.Order;
 import com.nithishramurthy.farm.fresh.entity.PaymentStatus;
 import com.nithishramurthy.farm.fresh.exception.ResourceNotFoundException;
+import com.nithishramurthy.farm.fresh.notification.OrderEmailEvent;
+import com.nithishramurthy.farm.fresh.notification.OrderEmailType;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
-import com.nithishramurthy.farm.fresh.service.MailService;
 import com.nithishramurthy.farm.fresh.service.OrderFulfilmentService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,18 +42,16 @@ public class PaymentService {
     private final PaymentGateway gateway;
     private final OrderRepository orderRepository;
     private final OrderFulfilmentService fulfilment;
-    private final MailService mailService;
     private final ApplicationEventPublisher events;
     private final ObjectMapper objectMapper;
     private final Duration payWithin;
 
     public PaymentService(PaymentGateway gateway, OrderRepository orderRepository, OrderFulfilmentService fulfilment,
-                          MailService mailService, ApplicationEventPublisher events, ObjectMapper objectMapper,
+                          ApplicationEventPublisher events, ObjectMapper objectMapper,
                           @Value("${app.payments.pay-within-minutes:30}") long payWithinMinutes) {
         this.gateway = gateway;
         this.orderRepository = orderRepository;
         this.fulfilment = fulfilment;
-        this.mailService = mailService;
         this.events = events;
         this.objectMapper = objectMapper;
         this.payWithin = Duration.ofMinutes(payWithinMinutes);
@@ -79,7 +79,7 @@ public class PaymentService {
             return new PaymentStart(gateway.publicKey(), gatewayOrderId, amount, "INR");
         } catch (RuntimeException e) {
             log.error("Couldn't start payment for order {}", order.getId(), e);
-            fulfilment.cancelUnpaid(order.getId(), "payment-setup-failed");
+            fulfilment.cancelUnpaid(order.getId(), OrderFulfilmentService.PAYMENT_SETUP_FAILED);
             throw new IllegalArgumentException(
                     "Online payment isn't available right now. Please try again, or pick cash on delivery.");
         }
@@ -155,8 +155,7 @@ public class PaymentService {
     @Transactional
     public PaymentStatus markPaid(Long orderId, String paymentId) {
         if (orderRepository.movePayment(orderId, PaymentStatus.AWAITING_PAYMENT, PaymentStatus.PAID, paymentId) == 1) {
-            Order order = orderRepository.findById(orderId).orElseThrow();
-            sendConfirmation(order);
+            events.publishEvent(new OrderEmailEvent(orderId, OrderEmailType.CONFIRMED));
             return PaymentStatus.PAID;
         }
         if (orderRepository.movePayment(orderId, PaymentStatus.UNPAID, PaymentStatus.REFUND_PENDING, paymentId) == 1) {
@@ -193,6 +192,7 @@ public class PaymentService {
         try {
             gateway.refund(order.getGatewayPaymentId(), toPaise(order.getTotalAmount()));
             log.info("Refunded order {} (payment {})", orderId, order.getGatewayPaymentId());
+            events.publishEvent(new OrderEmailEvent(orderId, OrderEmailType.REFUNDED));
             return PaymentStatus.REFUNDED;
         } catch (RuntimeException e) {
             log.error("Refund for order {} failed; an admin can retry it", orderId, e);
@@ -215,14 +215,6 @@ public class PaymentService {
             } catch (RuntimeException e) {
                 log.error("Couldn't expire unpaid order {}", order.getId(), e);
             }
-        }
-    }
-
-    private void sendConfirmation(Order order) {
-        try {
-            mailService.sendOrderConfirmationEmail(order, order.getUser().getEmail(), order.getUser().getName());
-        } catch (RuntimeException e) {
-            log.warn("Order {} is paid but the confirmation email failed", order.getId(), e);
         }
     }
 
