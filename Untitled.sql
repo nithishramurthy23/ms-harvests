@@ -27,6 +27,9 @@ CREATE TABLE users (
   otp_expiry TIMESTAMP, -- Correctly stores Instant as UTC timestamp
   enabled BOOLEAN NOT NULL DEFAULT FALSE,
   failed_attempts INT NOT NULL DEFAULT 0, -- Added to track OTP retry attempts
+  otp_last_sent_at TIMESTAMP NULL, -- when the last code was emailed (one a minute)
+  otp_window_started_at TIMESTAMP NULL, -- start of the current one-hour sending window
+  otp_sends_in_window INT, -- codes sent in that window (five an hour)
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -1,7 +1,9 @@
 package com.nithishramurthy.farm.fresh.service;
 
 import com.nithishramurthy.farm.fresh.entity.User;
+import com.nithishramurthy.farm.fresh.exception.TooManyRequestsException;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +20,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -121,5 +125,60 @@ class OtpServiceTest {
 
         assertThat(user.getFailedAttempts()).isZero();
         assertThat(otpService.validateOtp(EMAIL, user.getOtpCode())).isTrue();
+    }
+
+    @Test
+    void aSecondCodeWithinAMinuteIsRefused() {
+        otpService.generateAndSendOtp(EMAIL, "Login OTP", "login");
+
+        assertThatThrownBy(() -> otpService.generateAndSendOtp(EMAIL, "Login OTP", "login"))
+                .isInstanceOf(TooManyRequestsException.class)
+                .satisfies(e -> assertThat(((TooManyRequestsException) e).getRetryAfterSeconds()).isBetween(1L, 61L));
+        verify(mailService, times(1)).sendTestMail(eq(EMAIL), any(), any());
+    }
+
+    @Test
+    void atMostFiveCodesAnHour() {
+        for (int i = 0; i < 5; i++) {
+            otpService.generateAndSendOtp(EMAIL, "Login OTP", "login");
+            user.setOtpLastSentAt(user.getOtpLastSentAt().minusSeconds(61)); // a minute passes
+        }
+
+        assertThatThrownBy(() -> otpService.generateAndSendOtp(EMAIL, "Login OTP", "login"))
+                .isInstanceOf(TooManyRequestsException.class)
+                .hasMessageContaining("Too many codes");
+
+        // an hour later it's allowed again
+        user.setOtpWindowStartedAt(user.getOtpWindowStartedAt().minus(Duration.ofHours(1)));
+        otpService.generateAndSendOtp(EMAIL, "Login OTP", "login");
+        verify(mailService, times(6)).sendTestMail(eq(EMAIL), any(), any());
+    }
+
+    @Test
+    void usingACodeCorrectlyClearsTheLimit() {
+        otpService.generateAndSendOtp(EMAIL, "Login OTP", "login");
+        assertThat(otpService.validateOtp(EMAIL, user.getOtpCode())).isTrue();
+
+        // e.g. signed up, then went straight to checkout
+        otpService.generateAndSendOtp(EMAIL, "Order OTP", "order confirmation");
+        verify(mailService, times(2)).sendTestMail(eq(EMAIL), any(), any());
+    }
+
+    @Test
+    void guessingIsCappedAtTenTriesAnHour() {
+        int guesses = 0;
+        for (int code = 0; code < 6; code++) {
+            try {
+                otpService.generateAndSendOtp(EMAIL, "Login OTP", "login");
+            } catch (TooManyRequestsException e) {
+                break;
+            }
+            for (int i = 0; i < 2; i++) {
+                otpService.validateOtp(EMAIL, "000000".equals(user.getOtpCode()) ? "111111" : "000000");
+                guesses++;
+            }
+            user.setOtpLastSentAt(user.getOtpLastSentAt().minusSeconds(61));
+        }
+        assertThat(guesses).isEqualTo(10);
     }
 }

@@ -77,7 +77,7 @@ WHERE id = :id AND stock_quantity >= :qty
 **Tradeoff.**
 - The code is stored in plain text. If the database leaked, live codes would leak with it. Hashing it the way passwords are hashed fixes that.
 - One OTP slot per user means that requesting a login code cancels a pending order code.
-- There is no rate limit on *sending* codes, so someone could make the app spam a user's inbox. A per-email limit (in Redis, or a table with timestamps) is the fix.
+- Sending codes is now limited: one a minute and five an hour per email, plus a per-address limit on all the login endpoints. See decision 15.
 
 ---
 
@@ -258,6 +258,29 @@ Two details came out of the tests:
 
 Plain-language version: [order-emails.md](order-emails.md).
 
+## 15. Rate limits on codes and logins
+
+**Problem.** Anyone could ask the app to email a code to any address as often as they liked, which made it a free inbox-spamming tool and ran up the Gmail sending quota. Login and the code checks had no limit either. A code is cleared after 2 wrong tries, but a new code could be requested straight away, so an attacker could keep guessing forever.
+
+**Decision.** Two layers.
+- **Per email, in the database.** `OtpService` keeps three columns on the user: when the last code was sent, when the current one-hour window started, and how many codes went out in it. A second code within 60 seconds, or a sixth within the hour, is refused. With 2 guesses per code and at most 5 codes an hour, that's at most 10 guesses an hour, about a 1 in 90,000 chance against a 6-digit code. Using a code correctly clears the counters, so a real user is never stuck.
+- **Per IP address, in memory.** `AuthRateLimitFilter` runs before Spring Security and counts POSTs per address in two buckets: "send" (send-otp, resend-otp, forgot-password, register; 10 per 10 minutes) and "check" (login, verify-otp, reset-password, Google; 30 per 10 minutes). Over the limit, it answers 429 with a `Retry-After` header. `FixedWindowRateLimiter` updates each counter with one atomic `ConcurrentHashMap.compute`, and a scheduled job drops old entries so the map can't grow forever.
+
+The public endpoints never say that the *per-email* limit was hit. They give the same "If an account exists, we've sent it a code" reply for a sent code, an unknown email and a refused one, so they can't be used to find out who has an account. The per-address 429 says nothing about any account. Checkout is the exception: the user is already logged in, so it answers 429 with how long to wait.
+
+`server.forward-headers-strategy=native` makes `getRemoteAddr()` the real client behind nginx or Caddy. Without it, every request would look like it came from the proxy and share one bucket.
+
+**Alternatives considered.**
+- *Redis (or Bucket4j on Redis).* The right choice with many backend copies, because every copy would share one count. With 2 copies here, each keeps its own count, so the real per-address limit is up to twice the setting. The per-email limit is in MySQL, so it's exact no matter how many copies run. That's the one that protects inboxes.
+- *Spring Cloud Gateway or nginx `limit_req`.* Works, but moves the rule out of the app where the tests can't see it.
+- *CAPTCHA.* Stops bots better, but it's a frontend and third-party change, and it annoys real users.
+
+**Tradeoff.** The in-memory counts reset on restart and aren't shared between copies. Many people behind one office or mobile network share an address, so the limits are set generously.
+
+**Tested by.** `FixedWindowRateLimiterTest` (limits, window reset, 200 threads at once, cleanup), `OtpServiceTest` (the minute wait, five an hour, reset on success, the ten-guess cap) and `RateLimitIntegrationTest` (429s with `Retry-After`, the same reply with and without an account, checkout's wait message).
+
+Plain-language version: [rate-limits.md](rate-limits.md).
+
 ## What I'd do next
 
 Roughly in order of value:
@@ -265,6 +288,5 @@ Roughly in order of value:
 1. **Database migrations with Flyway** instead of `spring.jpa.hibernate.ddl-auto=update`, so schema changes are versioned, reviewed, and repeatable.
 2. **Move the customer endpoints onto the shared error handler** that the admin API uses.
 3. **Transactional outbox** for order emails and refunds (see decisions 5, 12 and 14).
-4. **Rate limit OTP sending and login attempts.**
-5. **Refresh tokens** and shorter-lived access tokens (see decision 3).
-6. **Testcontainers** to run integration tests against real MySQL instead of H2.
+4. **Refresh tokens** and shorter-lived access tokens (see decision 3).
+5. **Testcontainers** to run integration tests against real MySQL instead of H2.

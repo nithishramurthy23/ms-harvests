@@ -3,13 +3,15 @@ package com.nithishramurthy.farm.fresh.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nithishramurthy.farm.fresh.entity.Product;
+import com.nithishramurthy.farm.fresh.entity.User;
 import com.nithishramurthy.farm.fresh.mainprog.FarmFreshApplication;
 import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
 import com.nithishramurthy.farm.fresh.repository.ProductRepository;
-import com.nithishramurthy.farm.fresh.repository.StockMovementRepository;
 import com.nithishramurthy.farm.fresh.repository.RoleChangeRepository;
+import com.nithishramurthy.farm.fresh.repository.StockMovementRepository;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -171,7 +173,10 @@ class OrderFlowIntegrationTest {
         assertThat(userRepository.findByEmail(EMAIL).orElseThrow().getFailedAttempts()).isEqualTo(2);
         assertThat(orderRepository.count()).isZero();
 
-        // a fresh code works again
+        // a fresh code works again, once the one-minute wait between codes has passed
+        User user = userRepository.findByEmail(EMAIL).orElseThrow();
+        user.setOtpLastSentAt(user.getOtpLastSentAt().minusSeconds(61));
+        userRepository.save(user);
         requestOrderOtp(token);
         placeOrder(token, currentOtp()).andExpect(status().isCreated());
     }
