@@ -1,5 +1,3 @@
-// src/main/java/com/nithishramurthy/farm/fresh/service/OrderService.java
-
 package com.nithishramurthy.farm.fresh.service;
 
 import com.nithishramurthy.farm.fresh.dto.OrderDTO;
@@ -8,13 +6,20 @@ import com.nithishramurthy.farm.fresh.dto.OrderResponse;
 import com.nithishramurthy.farm.fresh.entity.Order;
 import com.nithishramurthy.farm.fresh.entity.OrderItem;
 import com.nithishramurthy.farm.fresh.entity.OrderStatus;
+import com.nithishramurthy.farm.fresh.entity.PaymentStatus;
 import com.nithishramurthy.farm.fresh.entity.Product;
 import com.nithishramurthy.farm.fresh.entity.User;
+import com.nithishramurthy.farm.fresh.notification.OrderEmailEvent;
+import com.nithishramurthy.farm.fresh.notification.OrderEmailType;
+import com.nithishramurthy.farm.fresh.payment.PaymentService;
+import com.nithishramurthy.farm.fresh.payment.PaymentStart;
 import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
 import com.nithishramurthy.farm.fresh.repository.ProductRepository;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
 
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -25,6 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /** Checkout and order lookup. */
 @Service
@@ -35,22 +41,25 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
     private final OtpService otpService;
-    private final MailService mailService;
+    private final ApplicationEventPublisher events;
     private final ProductService productService;
     private final TransactionTemplate transactionTemplate;
+    private final PaymentService paymentService;
 
     public OrderService(OrderRepository orderRepository, UserRepository userRepository,
                         ProductRepository productRepository, OrderItemRepository orderItemRepository,
-                        OtpService otpService, MailService mailService,
-                        ProductService productService, PlatformTransactionManager transactionManager) {
+                        OtpService otpService, ApplicationEventPublisher events,
+                        ProductService productService, PlatformTransactionManager transactionManager,
+                        PaymentService paymentService) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.productRepository = productRepository;
         this.orderItemRepository = orderItemRepository;
         this.otpService = otpService;
-        this.mailService = mailService;
+        this.events = events;
         this.productService = productService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.paymentService = paymentService;
     }
 
     /** Emails the order confirmation OTP. */
@@ -71,15 +80,37 @@ public class OrderService {
      * could be guessed with unlimited tries.
      */
     public OrderResponse placeOrder(OrderRequest orderRequest) {
+        return placeOrder(orderRequest, null);
+    }
+
+    /**
+     * @param idempotencyKey a random id the browser makes once per checkout and sends
+     *                       with every try. If the first request got through but its
+     *                       reply was lost (slow network, double click), the retry
+     *                       gets the same order back instead of creating a second one.
+     */
+    public OrderResponse placeOrder(OrderRequest orderRequest, String idempotencyKey) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userEmail = authentication.getName();
 
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user not found."));
 
-        // Card/UPI need a real payment gateway; until then only cash on delivery is allowed.
-        if (!"cod".equalsIgnoreCase(orderRequest.getPaymentMethod())) {
-            throw new IllegalArgumentException("Only cash on delivery is available right now.");
+        String key = normaliseKey(idempotencyKey);
+        if (key != null) {
+            // Checked before the OTP, because the first request already used the code up.
+            Optional<Order> earlier = orderRepository.findByUserIdAndIdempotencyKey(user.getId(), key);
+            if (earlier.isPresent()) {
+                return alreadyPlaced(earlier.get());
+            }
+        }
+
+        boolean online = "online".equalsIgnoreCase(orderRequest.getPaymentMethod());
+        if (online && !paymentService.isOnlineEnabled()) {
+            throw new IllegalArgumentException("Online payment isn't set up for this shop. Please pick cash on delivery.");
+        }
+        if (!online && !"cod".equalsIgnoreCase(orderRequest.getPaymentMethod())) {
+            throw new IllegalArgumentException("Pick cash on delivery or online payment.");
         }
 
         if (orderRequest.getOrderConfirmationOtp() == null || orderRequest.getOrderConfirmationOtp().isEmpty()) {
@@ -92,21 +123,55 @@ public class OrderService {
             throw new IllegalArgumentException("Invalid or expired OTP for order confirmation.");
         }
 
-        Order savedOrder = transactionTemplate.execute(status -> createOrder(user, orderRequest));
-
+        Order savedOrder;
         try {
-            mailService.sendOrderConfirmationEmail(savedOrder, user.getEmail(), user.getName());
-        } catch (Exception e) {
-            System.err.println("Failed to send order confirmation email for order " + savedOrder.getId() + ": " + e.getMessage());
+            savedOrder = transactionTemplate.execute(status -> createOrder(user, orderRequest, key, online));
+        } catch (DataIntegrityViolationException e) {
+            // Two tries with the same key arrived together and the other one won.
+            if (key == null) {
+                throw e;
+            }
+            return orderRepository.findByUserIdAndIdempotencyKey(user.getId(), key)
+                    .map(this::alreadyPlaced)
+                    .orElseThrow(() -> e);
         }
 
-        return new OrderResponse(
-                savedOrder.getId(),
-                savedOrder.getStatus().name(),
-                savedOrder.getTotalAmount(),
-                savedOrder.getOrderDate(),
-                "Order placed successfully!"
-        );
+        if (online) {
+            // Stock is reserved; now ask Razorpay for a payment. The confirmation
+            // email goes out once the money arrives (PaymentService.markPaid).
+            PaymentStart payment = paymentService.start(savedOrder);
+            OrderResponse response = response(savedOrder, "Order saved. Complete the payment to confirm it.");
+            response.setPayment(payment);
+            return response;
+        }
+
+        events.publishEvent(new OrderEmailEvent(savedOrder.getId(), OrderEmailType.CONFIRMED));
+        return response(savedOrder, "Order placed successfully!");
+    }
+
+    private OrderResponse alreadyPlaced(Order order) {
+        OrderResponse response = response(order, "This order was already placed.");
+        if (order.getPaymentStatus() == PaymentStatus.AWAITING_PAYMENT && order.getGatewayOrderId() != null) {
+            response.setPayment(paymentService.resume(order.getId(), order.getUser().getId()));
+        }
+        return response;
+    }
+
+    private static OrderResponse response(Order order, String message) {
+        OrderResponse response = new OrderResponse(order.getId(), order.getStatus().name(), order.getTotalAmount(),
+                order.getOrderDate(), message);
+        response.setPaymentStatus(order.getPaymentStatus().name());
+        return response;
+    }
+
+    private static String normaliseKey(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        if (key.length() > 64) {
+            throw new IllegalArgumentException("Idempotency-Key must be at most 64 characters.");
+        }
+        return key.trim();
     }
 
     /**
@@ -114,13 +179,15 @@ public class OrderService {
      * if any item fails (unknown product, not enough stock), nothing is saved and
      * stock reserved for earlier items is released.
      */
-    private Order createOrder(User user, OrderRequest orderRequest) {
+    private Order createOrder(User user, OrderRequest orderRequest, String idempotencyKey, boolean online) {
         Order order = new Order();
         order.setUser(user);
         order.setOrderDate(LocalDateTime.now());
-        order.setPaymentMethod(orderRequest.getPaymentMethod());
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(BigDecimal.ZERO);
+        order.setIdempotencyKey(idempotencyKey);
+        order.setPaymentMethod(online ? "online" : "cod");
+        order.setPaymentStatus(online ? PaymentStatus.AWAITING_PAYMENT : PaymentStatus.PAY_ON_DELIVERY);
 
         String fullShippingAddress = String.format("%s, %s, %s (Phone: %s, Email: %s)",
                 orderRequest.getShippingInfo().getAddress(),
@@ -135,6 +202,10 @@ public class OrderService {
         for (OrderRequest.OrderItemDto itemDto : orderRequest.getItems()) {
             Product product = productRepository.findById(itemDto.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemDto.getProductId()));
+
+            if (!product.isActive()) {
+                throw new IllegalArgumentException("Product is no longer sold: " + product.getName());
+            }
 
             if (itemDto.getQuantity() == null || itemDto.getQuantity() <= 0) {
                 throw new IllegalArgumentException("Quantity must be at least 1 for product: " + product.getName());

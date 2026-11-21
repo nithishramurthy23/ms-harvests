@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import logo from "../assets/logo.png";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ShoppingBasket, Menu, X, User, LogOut, Package } from "lucide-react";
+import { ShoppingBasket, Menu, X, User, LogOut, Package, Store } from "lucide-react";
+import { canManageStore } from "../utils/roles";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import Cart from "./Cart";
@@ -68,12 +69,13 @@ export default function Navbar() {
 
       <header className="sticky top-0 z-40 border-b border-bark/10 bg-paper/95 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center gap-4 lg:gap-8">
-            <Link to="/" className="flex flex-none items-center gap-2.5">
-              <img src={logo} alt="" className="h-10 w-10 rounded-full ring-1 ring-bark/10" />
-              <span className="leading-none">
-                <span className="block font-display text-lg font-bold text-green-800 sm:text-xl">
-                  MS Fresh Harvest
+          <div className="flex h-16 items-center gap-2 sm:gap-4 lg:gap-8">
+            <Link to="/" className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+              <img src={logo} alt="" className="h-10 w-10 flex-none rounded-full ring-1 ring-bark/10" />
+              <span className="min-w-0 leading-none">
+                <span className="block truncate font-display text-base font-bold text-green-800 sm:text-xl">
+                  {/* "MS" is dropped on the narrowest phones so the cart and menu still fit */}
+                  <span className="hidden min-[400px]:inline">MS </span>Fresh Harvest
                 </span>
                 <span className="hidden text-[11px] uppercase tracking-[0.16em] text-bark/50 sm:block">
                   Ooty · The Nilgiris
@@ -115,6 +117,11 @@ export default function Navbar() {
                       <Link to="/orders" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-green-50">
                         <Package className="h-4 w-4" /> Orders
                       </Link>
+                      {canManageStore(user) && (
+                        <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-800 hover:bg-green-50">
+                          <Store className="h-4 w-4" /> Manage store
+                        </Link>
+                      )}
                       <button
                         onClick={handleLogout}
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-green-50"
@@ -174,6 +181,11 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
+            {canManageStore(user) && (
+              <NavLink to="/admin" className="block rounded-xl px-3 py-3 font-medium text-green-800">
+                Manage store
+              </NavLink>
+            )}
           </nav>
         )}
       </header>

@@ -21,12 +21,14 @@ public class AuthResponse {
     private String email;
     private String phone;
     private String address;
+    private String role; // USER, MEMBER, ADMIN or OWNER
 
     // Constructors, Getters, Setters
     public AuthResponse() {}
 
      public AuthResponse(String token, User user) {
         this.token = token;
+        this.role = user.roleEnum().name();
         this.id = user.getId();
         this.name = user.getName();
         this.email = user.getEmail();
@@ -45,6 +47,7 @@ public class AuthResponse {
     public AuthResponse(String token, User user, String message) {
         this.token = token;
         this.message = message;
+        this.role = user.roleEnum().name();
         this.id = user.getId();
         this.name = user.getName();
         this.email = user.getEmail();
@@ -52,6 +55,14 @@ public class AuthResponse {
         this.address = user.getAddress();
     }
 
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
 
     public String getToken() {
         return token;

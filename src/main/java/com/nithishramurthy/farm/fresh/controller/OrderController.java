@@ -7,6 +7,8 @@ import com.nithishramurthy.farm.fresh.dto.OrderDTO;
 import com.nithishramurthy.farm.fresh.dto.OrderRequest;
 import com.nithishramurthy.farm.fresh.dto.OrderResponse;
 import com.nithishramurthy.farm.fresh.dto.SendOtpRequest;
+import com.nithishramurthy.farm.fresh.exception.ResourceNotFoundException;
+import com.nithishramurthy.farm.fresh.service.OrderFulfilmentService;
 import com.nithishramurthy.farm.fresh.service.OrderService;
 
 import jakarta.validation.Valid;
@@ -26,9 +28,11 @@ import java.util.stream.Collectors;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderFulfilmentService fulfilmentService;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, OrderFulfilmentService fulfilmentService) {
         this.orderService = orderService;
+        this.fulfilmentService = fulfilmentService;
     }
 
     /** Step 1 of checkout: emails an OTP the user must enter to confirm the order. */
@@ -56,7 +60,8 @@ public class OrderController {
 
     /** Step 2 of checkout: validates the request and places the order. */
     @PostMapping("/place-order")
-    public ResponseEntity<?> placeOrder(@Valid @RequestBody OrderRequest orderRequest, BindingResult bindingResult) {
+    public ResponseEntity<?> placeOrder(@Valid @RequestBody OrderRequest orderRequest, BindingResult bindingResult,
+                                        @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         try {
             if (bindingResult.hasErrors()) {
                 Map<String, String> errors = new HashMap<>();
@@ -65,7 +70,7 @@ public class OrderController {
                 return ResponseEntity.badRequest().body(errors);
             }
 
-            OrderResponse response = orderService.placeOrder(orderRequest);
+            OrderResponse response = orderService.placeOrder(orderRequest, idempotencyKey);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -87,6 +92,20 @@ public class OrderController {
                 .map(OrderDTO::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(orderHistory);
+    }
+
+    /** Cancels the user's own order while it's still PENDING; the items go back in stock. */
+    @PostMapping("/{orderId}/cancel")
+    public ResponseEntity<?> cancelOrder(@PathVariable Long orderId) {
+        CustomUserDetails me = (CustomUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        try {
+            fulfilmentService.cancelByCustomer(orderId, me.getUser().getId(), me.getUsername());
+            return ResponseEntity.ok(Map.of("message", "Order cancelled."));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Order not found."));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
+        }
     }
 
     /** One order, only if it belongs to the logged-in user. */

@@ -1,5 +1,7 @@
 package com.nithishramurthy.farm.fresh.entity;
 
+import org.hibernate.annotations.DynamicUpdate;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -7,8 +9,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** A placed order with its shipping address, payment method, total and lines. */
+// Only changed columns are written, so saving a status change never overwrites a
+// payment status that a webhook updated a moment earlier.
 @Entity
-@Table(name = "orders")
+@DynamicUpdate
+@Table(name = "orders", uniqueConstraints = @UniqueConstraint(
+        name = "uk_orders_user_idempotency_key", columnNames = {"user_id", "idempotency_key"}))
 public class Order {
 
     @Id
@@ -34,6 +40,23 @@ public class Order {
 
     @Column(name = "payment_method", nullable = false, length = 50)
     private String paymentMethod;
+
+    // Older rows have no value here; getPaymentStatus() reads them as cash on delivery.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 20)
+    private PaymentStatus paymentStatus = PaymentStatus.PAY_ON_DELIVERY;
+
+    /** Razorpay's id for this order (order_...), set for online payments. */
+    @Column(name = "gateway_order_id", length = 64)
+    private String gatewayOrderId;
+
+    /** Razorpay's id for the successful payment (pay_...). Needed for refunds. */
+    @Column(name = "gateway_payment_id", length = 64)
+    private String gatewayPaymentId;
+
+    /** Sent by the browser with each checkout, so a retried request finds this order instead of making a second one. */
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> orderItems = new ArrayList<>();
@@ -94,6 +117,42 @@ public class Order {
 
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
+    }
+
+    public PaymentStatus getPaymentStatus() {
+        return paymentStatus == null ? PaymentStatus.PAY_ON_DELIVERY : paymentStatus;
+    }
+
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public String getGatewayOrderId() {
+        return gatewayOrderId;
+    }
+
+    public void setGatewayOrderId(String gatewayOrderId) {
+        this.gatewayOrderId = gatewayOrderId;
+    }
+
+    public String getGatewayPaymentId() {
+        return gatewayPaymentId;
+    }
+
+    public void setGatewayPaymentId(String gatewayPaymentId) {
+        this.gatewayPaymentId = gatewayPaymentId;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+    }
+
+    public boolean isOnlinePayment() {
+        return "online".equalsIgnoreCase(paymentMethod);
     }
 
     public List<OrderItem> getOrderItems() {

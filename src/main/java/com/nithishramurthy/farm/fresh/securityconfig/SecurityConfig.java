@@ -95,9 +95,17 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/", "/api/auth/**", "/api/contact", "/api/status", "/actuator/health/**",
-                    "/swagger-ui/**", "/v3/api-docs/**"
+                    "/swagger-ui/**", "/v3/api-docs/**",
+                    // Razorpay calls the webhook without a login; it's checked by its signature instead.
+                    "/api/payments/webhook"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/payments/config").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/offers/today").permitAll()
+                // Running the store: products, stock and orders. Users and members can't.
+                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OWNER")
+                // Sales figures are for the owner only. (Who may give which role is
+                // checked in UserManagementService: admins handle members, the owner handles admins.)
+                .requestMatchers("/api/owner/**").hasRole("OWNER")
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

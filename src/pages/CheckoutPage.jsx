@@ -1,21 +1,33 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Truck } from "lucide-react";
+import { CheckCircle, CreditCard, Truck } from "lucide-react";
 import api from "../api/axiosInstance";
 import { toOrderItems } from "../utils/orderItems";
 import { useCatalog } from "../context/CatalogContext";
+import { newCheckoutKey, payForOrder, paymentConfig } from "../utils/payments";
 
 // Checkout in two steps: fill in shipping details and request an OTP,
-// then enter the OTP from the email to place the order (cash on delivery).
+// then enter the OTP from the email to place the order. With online payment,
+// Razorpay's window opens next; the order is confirmed once the payment is checked.
 export default function CheckoutPage() {
   const { state, dispatch } = useCart();
   const { productIds, reload: reloadCatalog } = useCatalog();
   const { user, isAuthenticated, token } = useAuth();
   const navigate = useNavigate();
   const [showSuccess, setShowSuccess] = useState(false);
-  const paymentMethod = "cod";
+  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [successText, setSuccessText] = useState("Order Placed Successfully!");
+  // Same key for every try of this checkout, so a retry never makes two orders.
+  const checkoutKey = useRef(newCheckoutKey());
+
+  useEffect(() => {
+    paymentConfig()
+      .then((config) => setOnlineEnabled(config.onlineEnabled))
+      .catch(() => setOnlineEnabled(false));
+  }, []);
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
@@ -134,10 +146,28 @@ export default function CheckoutPage() {
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Idempotency-Key": checkoutKey.current,
           },
         }
       );
-      setSuccessMessage(response.data.message || "Order placed successfully!");
+      const placed = response.data;
+      if (placed.payment) {
+        try {
+          await payForOrder(placed.orderId, placed.payment, formData);
+          setSuccessText("Payment received. Order confirmed!");
+        } catch (payErr) {
+          // The order is saved and its stock held. It can be paid from "My orders".
+          dispatch({ type: "CLEAR_CART" });
+          reloadCatalog();
+          setError(
+            payErr?.dismissed
+              ? `Order #${placed.orderId} is saved but not paid yet. You can pay for it from My orders within 30 minutes.`
+              : `${payErr.message || "The payment didn't go through."} Order #${placed.orderId} is saved: you can try again from My orders.`
+          );
+          return;
+        }
+      }
+      setSuccessMessage(placed.message || "Order placed successfully!");
       dispatch({ type: "CLEAR_CART" });
       reloadCatalog(); // stock just changed
       setShowSuccess(true);
@@ -163,9 +193,7 @@ export default function CheckoutPage() {
       <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
         <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">
-            Order Placed Successfully!
-          </h2>
+          <h2 className="text-2xl font-bold mb-2">{successText}</h2>
           <p className="text-gray-600 mb-4">
             Thank you for shopping with MS Fresh Harvest.
           </p>
@@ -290,16 +318,36 @@ export default function CheckoutPage() {
 
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
-              {/* Only cash on delivery for now. Card/UPI need a payment gateway
-                  (e.g. Razorpay or Stripe); never collect card details directly. */}
-              <div className="flex items-center gap-3 p-4 rounded-lg border border-green-500 bg-green-50">
-                <Truck className="w-6 h-6 text-green-700" />
-                <div>
-                  <span className="block font-medium">Cash on Delivery</span>
-                  <span className="block text-sm text-gray-600">
-                    Pay when you receive the products.
-                  </span>
-                </div>
+              {/* Card and UPI details are typed into Razorpay's window, never into this page. */}
+              <div className="space-y-3" role="radiogroup" aria-label="Payment method">
+                {[
+                  { value: "cod", icon: Truck, title: "Cash on Delivery", hint: "Pay when you receive the products." },
+                  ...(onlineEnabled
+                    ? [{ value: "online", icon: CreditCard, title: "Pay online", hint: "UPI, card or net banking, through Razorpay." }]
+                    : []),
+                ].map(({ value, icon: Icon, title, hint }) => (
+                  <label
+                    key={value}
+                    className={`flex cursor-pointer items-center gap-3 p-4 rounded-lg border ${
+                      paymentMethod === value ? "border-green-500 bg-green-50" : "border-gray-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={value}
+                      checked={paymentMethod === value}
+                      onChange={() => setPaymentMethod(value)}
+                      disabled={otpSent}
+                      className="sr-only"
+                    />
+                    <Icon className="w-6 h-6 text-green-700" />
+                    <div>
+                      <span className="block font-medium">{title}</span>
+                      <span className="block text-sm text-gray-600">{hint}</span>
+                    </div>
+                  </label>
+                ))}
               </div>
             </div>
           </div>
@@ -341,7 +389,11 @@ export default function CheckoutPage() {
                   disabled={loading || state.items.length === 0 || !orderOtp}
                   className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium text-lg disabled:opacity-50"
                 >
-                  {loading ? "Placing Order..." : "Confirm & Place Order"}
+                  {loading
+                    ? "Placing Order..."
+                    : paymentMethod === "online"
+                    ? "Confirm & Pay"
+                    : "Confirm & Place Order"}
                 </button>
               </form>
             ) : (

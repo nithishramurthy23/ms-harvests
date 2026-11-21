@@ -1,27 +1,44 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { categoryName } from "../data/catalog";
-import { useCatalog } from "../context/CatalogContext";
+import { searchProducts } from "../api/search";
 import ProductImage from "./ProductImage";
 
-// Search box with instant suggestions. Enter shows every match on the shop page.
+// Search box with instant suggestions from the same search the shop page uses
+// (plurals, typos, best match first). Enter shows every match on the shop page.
 export default function SearchBar({ onNavigate }) {
   const [query, setQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const navigate = useNavigate();
-  const { products } = useCatalog();
+  const [matches, setMatches] = useState([]);
+  const [didYouMean, setDidYouMean] = useState(null);
+  const [answeredFor, setAnsweredFor] = useState("");
 
   const term = query.trim().toLowerCase();
-  const matches = term
-    ? products
-        .filter(
-          (p) =>
-            p.name.toLowerCase().includes(term) ||
-            categoryName(p.category).toLowerCase().includes(term)
-        )
-        .slice(0, 6)
-    : [];
+
+  // Wait for a short pause in typing before asking the server.
+  useEffect(() => {
+    if (!term) {
+      setMatches([]);
+      setDidYouMean(null);
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      searchProducts({ q: term, size: 6 }, controller.signal)
+        .then((result) => {
+          setMatches(result.items);
+          setDidYouMean(result.didYouMean);
+          setAnsweredFor(term);
+        })
+        .catch(() => {});
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [term]);
 
   const go = (path) => {
     navigate(path);
@@ -59,7 +76,7 @@ export default function SearchBar({ onNavigate }) {
         <Search className="pointer-events-none absolute left-4 top-3 h-5 w-5 text-bark/45" />
       </form>
 
-      {showResults && term && (
+      {showResults && term && (matches.length > 0 || answeredFor === term) && (
         <div
           className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-bark/10 bg-paper shadow-xl"
           onMouseDown={(e) => e.preventDefault()}
@@ -96,7 +113,18 @@ export default function SearchBar({ onNavigate }) {
             </ul>
           ) : (
             <p className="px-4 py-3 text-sm text-bark/60">
-              Nothing matches “{query.trim()}”. Try a vegetable or fruit name.
+              Nothing matches “{query.trim()}”.{" "}
+              {didYouMean ? (
+                <button
+                  type="button"
+                  onClick={() => go(`/products?q=${encodeURIComponent(didYouMean)}`)}
+                  className="font-medium text-green-700 underline"
+                >
+                  Did you mean {didYouMean}?
+                </button>
+              ) : (
+                "Try a vegetable or fruit name."
+              )}
             </p>
           )}
         </div>

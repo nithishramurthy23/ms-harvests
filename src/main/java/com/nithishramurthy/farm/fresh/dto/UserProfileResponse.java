@@ -1,5 +1,7 @@
 package com.nithishramurthy.farm.fresh.dto;
 
+import com.nithishramurthy.farm.fresh.entity.User;
+
 
 
 /** Profile details returned by /api/auth/me and after a profile update. */
@@ -9,6 +11,7 @@ public class UserProfileResponse {
     private String email;
     private String phone;
     private String address;
+    private String role; // USER, MEMBER, ADMIN or OWNER
 
     public UserProfileResponse() {}
 
@@ -18,6 +21,19 @@ public class UserProfileResponse {
         this.email = email;
         this.phone = phone;
         this.address = address;
+    }
+
+    public UserProfileResponse(User user) {
+        this(user.getId(), user.getName(), user.getEmail(), user.getPhone(), user.getAddress());
+        this.role = user.roleEnum().name();
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public Long getId() {

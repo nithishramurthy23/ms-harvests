@@ -297,6 +297,11 @@ All settings come from `.env` (or real environment variables).
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | backend database | `localhost:3306/farm_fresh`, `root`, none |
 | `JWT_SECRET`, `JWT_EXPIRATION` | backend login tokens | none, 24h (`86400000` milliseconds) |
 | `GOOGLE_CLIENT_ID` | backend, enables Sign in with Google ([setup](google-sign-in.md)) | empty (button hidden) |
+| `OWNER_EMAIL` | backend, this account becomes the shop owner ([roles](#10-changing-products-and-prices)) | empty |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | backend, turn on online payment ([payments guide](payments.md)) | empty (cash on delivery only) |
+| `RAZORPAY_WEBHOOK_SECRET` | backend, checks that payment webhooks really come from Razorpay | empty |
+| `FRONTEND_URL` | backend, the shop's address, used for the "See your orders" link in emails ([order emails](order-emails.md)) | `http://localhost:5173` |
+| `PAY_WITHIN_MINUTES` | backend, unpaid online orders are cancelled after this long | `30` |
 | `CORS_ALLOWED_ORIGINS` | backend, comma-separated frontend URLs allowed to call it | `http://localhost:5173,http://localhost:3000` |
 | `PORT` | backend port | `8080` |
 | `VITE_API_URL` | frontend, where to find the backend | `http://localhost:8080/api` |
@@ -345,22 +350,44 @@ ms-harvests/
 
 Products, prices and stock live in **the database only**. The website loads them from `GET /api/products` every time it opens, so a change shows up on the next page load. Nothing in the frontend needs editing or rebuilding.
 
-There's no admin screen yet, so for now make changes with SQL. For an app that's already running, use SQL rather than re-running `Untitled.sql` (which wipes users and orders):
+**Who can change them.** Every account has a role:
+
+| Role | Can do |
+| --- | --- |
+| `USER` | Shop, see and cancel their own pending orders |
+| `MEMBER` | Same as a user (room for member perks later) |
+| `ADMIN` | Add, edit and hide products, change stock, move orders through their statuses, and move customers between user and member |
+| `OWNER` | Everything an admin can, plus add and remove admins and owners, and see the sales summary |
+
+To become the owner, put your email in `OWNER_EMAIL` in `.env` and restart the backend. If you've already signed up, you're promoted at startup; otherwise you become owner when you sign up. From then on, give people roles in the dashboard's **People** tab (or `PATCH /api/admin/users/{id}/role`). No SQL is needed.
+
+Who can change whose role:
+
+- The owner can make anyone a user, member, admin or owner, so the owner adds and removes admins.
+- An admin can only move people between user and member. Admins can't touch other admins or the owner.
+- Nobody can change their own role, and the last owner can't be demoted.
+
+Every role change is logged with who made it (`GET /api/admin/role-changes`).
+
+Admins and owners get a **Manage store** link in the account menu, which opens the dashboard at `/admin`:
+
+- **Overview** (owner): money collected and still to collect, orders by status, and what's running low.
+- **Products & stock**: add a product with its starting stock, edit details and price, hide or show it, and add or remove stock with a reason. The clock icon shows the history.
+- **Orders**: new orders first. Buttons move each one to packing, shipped and delivered, or cancel it.
+- **People**: search everyone and change roles. The owner sees every role; an admin only sees user and member, and other staff are shown as locked. Recent role changes are listed below.
+
+Behind the dashboard is the `/api/admin/**` API (the endpoint table is in the [README](../README.md#api)). Every stock change is logged with who made it and why (`GET /api/admin/products/{id}/stock`). Stock can never go below zero, and cancelling an order puts its items back.
+
+You can still use SQL if you prefer. For an app that's already running, use SQL rather than re-running `Untitled.sql` (which wipes users and orders):
 
 ```sh
 # With Docker (enter DB_PASSWORD when asked); without Docker, drop "docker compose exec mysql"
 docker compose exec mysql mysql -uroot -p farm_fresh
 ```
 ```sql
-UPDATE products SET price = 219.00, original_price = 219.00 WHERE id = 101;  -- change a price
-UPDATE products SET stock_quantity = 50 WHERE id = 101;                      -- restock
-UPDATE products SET stock_quantity = 0 WHERE id = 101;                       -- show as "Out of stock"
-INSERT INTO products (name, price, original_price, weight, image_url, category_id, stock_quantity)
-VALUES ('Kiwi', 149.00, 149.00, '500g', 'https://...',
-        (SELECT id FROM categories WHERE name = 'Fruits'), 100);              -- new product
+UPDATE users SET role = 'ROLE_ADMIN' WHERE email = 'someone@example.com';    -- make an admin
+UPDATE products SET stock_quantity = 50 WHERE id = 101;                      -- restock (not logged)
 ```
-
-Add the same change to `Untitled.sql` if a fresh database should get it too.
 
 A product with `stock_quantity = 0` stays on the site with an "Out of stock" label and a disabled Add button. When 5 or fewer are left, it shows "Only N left", and customers can't put more in the basket than there is.
 
@@ -368,7 +395,7 @@ A product with `stock_quantity = 0` stays on the site with an "Out of stock" lab
 
 **Day-of-week discounts** are in the `discount_rules` table. The website gets today's offer from `GET /api/offers/today`.
 
-**Order statuses** (`PENDING`, `PROCESSING`, `SHIPPED`, `DELIVERED`, `CANCELLED`) have no admin screen yet. Change one with SQL, for example `UPDATE orders SET status = 'SHIPPED' WHERE id = 12;`.
+**Order statuses** move PENDING → PROCESSING → SHIPPED → DELIVERED. An order can be cancelled until it ships: by the customer while it's PENDING, or by an admin while it's PENDING or PROCESSING. Cancelling puts the stock back. Skipping a step or going backwards is refused.
 
 ---
 

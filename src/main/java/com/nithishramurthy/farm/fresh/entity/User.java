@@ -104,6 +104,10 @@ public class User {
         this.role = role;
     }
 
+    public Role roleEnum() {
+        return Role.fromAuthority(role);
+    }
+
     public String getAddress() {
         return address;
     }

@@ -157,14 +157,114 @@ All secrets (database password, JWT secret, Gmail app password) and per-environm
 
 ---
 
+## 11. Four roles, checked at the URL level
+
+**Problem.** Running the shop meant writing SQL, because every account was `ROLE_USER` and nothing checked roles. The store needs people who can manage products, stock and orders without being able to do everything.
+
+**Decision.** `Role` has four values, stored in the existing `users.role` column as Spring authorities, so old rows still read as `USER`:
+
+| Role | Can do |
+|---|---|
+| USER, MEMBER | Shop, and cancel their own order while it's PENDING |
+| ADMIN | `/api/admin/**`: products, stock, all orders, and moving customers between USER and MEMBER |
+| OWNER | Everything an admin can, plus adding and removing admins and owners, and `/api/owner/**` (sales summary) |
+
+The rules are two lines in `SecurityConfig` (`/api/admin/**` needs ADMIN or OWNER, `/api/owner/**` needs OWNER), so one file shows who can reach what. The JWT filter loads the user from the database on every request, which means a role change takes effect on the next request without logging out. The first owner comes from `OWNER_EMAIL`, so setting up a shop needs no SQL.
+
+Who may change whose role is a second layer, because a URL rule can't express it. Admins and the owner both reach `PATCH /api/admin/users/{id}/role`, and `Role.assignableTo(current)` decides the rest: the owner can give any role to anyone, while an admin can only move someone who is currently USER or MEMBER to USER or MEMBER. `UserManagementService` also refuses changing your own role and demoting the last owner, and writes each change to `role_changes` (who, from, to, by whom, when). The people list sends `assignableRoles` for each person, so the dashboard only offers choices the server will accept. The rule lives in one place and the UI just reflects it.
+
+Order statuses are a small state machine in `OrderStatus.canMoveTo`: PENDING → PROCESSING → SHIPPED → DELIVERED, cancellable until shipped. Cancelling returns each item's quantity with the same conditional `UPDATE` admins use, and logs it in `stock_movements`.
+
+**Alternatives considered.**
+- *`@PreAuthorize` on each method.* It works, but the rules end up spread across controllers. URL rules are easier to review while the API is small.
+- *Roles inside the JWT.* That saves a database read, but a demoted admin would keep access until the token expired. The lookup already happens for every request.
+- *A permissions table (role → permission).* More flexible, but four fixed roles don't need it yet.
+
+**Tradeoff.** MEMBER has no perks yet; it's there so member pricing can be added without another migration. Admin errors go through a `@RestControllerAdvice` (404/400/409 with a `message`), while the older customer endpoints still catch exceptions themselves. Moving those over is a follow-up.
+
+**Tested by.** `StoreAdminIntegrationTest` runs the whole cycle (add product → sell out → restock → PROCESSING → SHIPPED → DELIVERED) and checks that users and members get 403 on every admin endpoint, that stock can't go below zero, that hidden products can't be bought, that cancelling restocks, that admins can move customers between user and member but get 403 when granting admin or owner or touching other staff, that nobody changes their own role, that the last owner stays, and that role changes are logged. `RoleTest` covers `assignableTo` for every pair. `OrderStatusTest` covers every status transition.
+
+---
+
+## 12. Online payments: conditional updates instead of locks
+
+**Problem.** Cash on delivery meant nobody could pay up front. Adding a gateway brings new ways to get money wrong: the browser and the webhook both report one payment, a payment arrives after the order expired, a refund is sent twice, or a double-click creates two orders.
+
+**Decision.** Razorpay's standard checkout, behind a small `PaymentGateway` interface. Payment status is its own column (`PaymentStatus`), separate from `OrderStatus`, because "paid" and "shipped" change independently. Every payment change is a conditional `UPDATE ... WHERE payment_status = :expected` (`OrderRepository.movePayment`), so when two callers race, exactly one wins and the other sees 0 rows. Other choices:
+
+- The Razorpay order is created *after* the order transaction commits, not inside it. Inside, the product rows locked by the stock `UPDATE` would stay locked for the length of an HTTP call to Razorpay, and every other checkout for those products would wait. If Razorpay fails, the order is cancelled and its stock released.
+- The browser's "paid" message is trusted only after checking Razorpay's HMAC signature. The webhook is checked with a separate secret, and its amount must equal our total.
+- Refunds run in an `@TransactionalEventListener` after the cancel commits, so a rolled-back cancel never refunds. The order is moved to REFUNDED *before* calling Razorpay and moved back if that fails, so a retry and the automatic refund can't both send money.
+- Unpaid orders hold stock, so a scheduled job cancels them after 30 minutes. A payment that lands after that is refunded automatically.
+- `Idempotency-Key` on `place-order`, checked before the OTP (the first request already used the code) and backed by a unique key on (user, key) for two requests arriving at the same time.
+- `Order` uses `@DynamicUpdate`, so saving a status change writes only the status column and can't overwrite a payment status a webhook wrote a moment before.
+
+**Alternatives considered.**
+- *Pessimistic lock (`SELECT ... FOR UPDATE`) on the order.* Works, but every path has to remember to take the lock. The conditional update can't be forgotten, because it *is* the write.
+- *Optimistic locking with `@Version`.* Also works, but the loser gets an exception to retry. Here the loser doesn't need to retry; it only needs to know what happened.
+- *The Razorpay Java SDK.* We use three endpoints and two HMACs. Calling the REST API with `RestClient` keeps the dependency list short and the code easy to follow.
+- *A transactional outbox for refunds.* More robust if the app crashes between commit and refund. For now a failed or missed refund stays visible as REFUND_PENDING with a retry button. The outbox is the next step (see decision 5).
+
+**Tradeoff.** The expiry job runs on every backend copy. That's safe, because the conditional update lets only one copy cancel each order, but it does duplicate work. ShedLock would fix that if the job ever got expensive.
+
+**Tested by.** `PaymentIntegrationTest` (12 tests, Razorpay mocked): pay then ship, a forged signature, browser plus webhook counted once, wrong webhook signature or amount, refund on cancel, a failed refund retried once, expiry releasing stock, a late payment refunded, Razorpay down at checkout, a retried checkout with the same key, cash on delivery paid on delivery, and customers unable to pay or verify someone else's order. `RazorpayGatewayTest` checks the HMACs against values computed separately in Python.
+
+Plain-language version, with setup steps: [payments.md](payments.md).
+
+## 13. Search in memory, with today's prices
+
+**Problem.** The shop page filtered and sorted in the browser, and the search box used a plain "contains" match, so "carrots" missed "Carrot" and a typo found nothing. Customers also couldn't filter by price or stock, and there were no pages.
+
+**Decision.** One server endpoint, `GET /api/products/search`, used by both the shop page and the search box. `ProductSearchService` takes the visible catalogue with today's prices from `ProductService` and then:
+
+- normalises words (lower case, accents removed, simple plurals made singular);
+- requires every word to match, and scores matches by where they were found (name, then aisle, then description);
+- filters by price range and stock, then counts results per aisle *before* applying the aisle filter, so the chips show what switching aisle would give;
+- sorts with sold-out products always last. "Popular" uses units sold in the last 30 days, from one `GROUP BY` query;
+- suggests a product name within 1 or 2 edits (Levenshtein) when nothing matches.
+
+All filters live in the URL, so results can be shared and the back button works.
+
+**Alternatives considered.**
+- *SQL with JPA Specifications.* Good for text and aisle, but the price shown depends on today's discount rules, which are applied in Java. Filtering or sorting by price in SQL would be wrong for discounted products, unless that price were stored in a column.
+- *MySQL full-text search (`MATCH ... AGAINST`).* Better at scale, but it doesn't handle typos, and H2 in the tests doesn't support it.
+- *OpenSearch or Elasticsearch.* The right tool for a big catalogue, with typo handling and facets built in, but it's another service to run, and far more than a few hundred products need.
+
+**Tradeoff.** Every search loads the whole visible catalogue. At a few hundred products that's under a millisecond, but it doesn't scale to a large catalogue. The way out is to store today's price in a column (recomputed when the rules change), then move text matching to a full-text index or a search engine. The endpoint and its response wouldn't need to change.
+
+**Tested by.** `ProductSearchServiceTest` (11 tests: plurals, every word must match, scoring order, aisle and description matches, price, stock and aisle filters, aisle counts, every sort, paging, typo suggestions) and an integration test in `CatalogIntegrationTest` that calls the real endpoint without logging in.
+
+Plain-language version: [search.md](search.md).
+
+## 14. Order emails from events, sent after commit
+
+**Problem.** The only order email was the confirmation, sent straight from checkout code. Customers heard nothing when an order shipped, arrived, was cancelled or was refunded. Adding a mail call to every place that changes an order would tie order logic to email, and an email could go out for a change that later rolled back.
+
+**Decision.** The order code publishes an `OrderEmailEvent(orderId, type)`. `OrderEmailListener` handles it with `@TransactionalEventListener`, so it runs only after the transaction commits. It loads the order fresh in its own read-only transaction, builds the email with `OrderEmailTemplates`, and hands it to `MailDispatcher`, which sends it on a background thread with retries. There are five types: confirmed (for online orders, only once paid), shipped, delivered, cancelled and refunded. Each email is multipart (text and HTML) built from the same sentences, with customer-supplied text HTML-escaped.
+
+Two details came out of the tests:
+- Cash-on-delivery checkout publishes after its `TransactionTemplate` has committed, when there's no transaction left. The listener uses `fallbackExecution = true` so it still runs.
+- Cancelling a paid order publishes the "cancelled" email *before* the refund event. After-commit listeners run in the order they were registered, and the refund listener sends its own "refund sent" email. The first version had them the wrong way round, so customers were told about the refund before the cancellation.
+
+**Alternatives considered.**
+- *Calling `MailService` directly where orders change.* Simple, but it can email about a change that then rolls back, and every new channel (SMS, WhatsApp) means editing order code again.
+- *A transactional outbox table.* Survives a crash between commit and send, which this design doesn't. It's the next step, and the event and listener stay the same; only the listener's job changes to "write a row".
+- *Kafka.* The pom already has spring-kafka, and it would let a separate service send emails. One app with one database doesn't need a broker yet.
+- *Thymeleaf templates.* Nicer for designers, but five short emails don't justify another dependency. A small builder keeps the text and HTML versions in step.
+
+**Tradeoff.** A crash right after commit loses that email (see the outbox above). Packing sends no email, on purpose.
+
+**Tested by.** `OrderEmailTemplatesTest` (wording per type and payment status, HTML escaping, Indian digit grouping) and `OrderEmailIntegrationTest`. The integration test checks the full COD sequence, that an online order gets "confirmed" only once paid (even when reported twice), the cancelled-then-refunded order, no email for failed checkouts or refused status changes, and that a mail failure doesn't break the order.
+
+Plain-language version: [order-emails.md](order-emails.md).
+
 ## What I'd do next
 
 Roughly in order of value:
 
 1. **Database migrations with Flyway** instead of `spring.jpa.hibernate.ddl-auto=update`, so schema changes are versioned, reviewed, and repeatable.
-2. **Admin screens** for products, stock and order status, with role checks, so nothing needs SQL.
-3. **Idempotency key on place-order**, so a client retry after a network error can't create a second order.
-4. **Transactional outbox for email** (see decision 5).
-5. **Rate limit OTP sending and login attempts.**
-6. **Refresh tokens** and shorter-lived access tokens (see decision 3).
-7. **Testcontainers** to run integration tests against real MySQL instead of H2.
+2. **Move the customer endpoints onto the shared error handler** that the admin API uses.
+3. **Transactional outbox** for order emails and refunds (see decisions 5, 12 and 14).
+4. **Rate limit OTP sending and login attempts.**
+5. **Refresh tokens** and shorter-lived access tokens (see decision 3).
+6. **Testcontainers** to run integration tests against real MySQL instead of H2.

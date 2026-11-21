@@ -7,7 +7,7 @@
 ![MySQL 8](https://img.shields.io/badge/MySQL-8-4479A1)
 ![Docker](https://img.shields.io/badge/Docker-compose-2496ED)
 
-An online store for fresh produce from farms in the Nilgiris. Customers browse products and ready-made baskets, sign in with a password, an email code or Google, and place cash-on-delivery orders that are confirmed with a one-time code.
+An online store for fresh produce from farms in the Nilgiris. Customers browse products and ready-made baskets, sign in with a password, an email code or Google, and pay online with Razorpay (UPI, cards) or cash on delivery. Orders are confirmed with a one-time code.
 
 It's a Spring Boot REST API with a React frontend. The backend runs as several stateless copies behind nginx, and it was load-tested with k6 to make sure it never oversells stock.
 
@@ -21,9 +21,14 @@ It's a Spring Boot REST API with a React frontend. The backend runs as several s
 
 - **No overselling under load.** Stock is reserved with one conditional `UPDATE ... WHERE stock >= qty` inside the order transaction. In a k6 flash sale with 500 buyers and 100 items across 2 backend copies, exactly 100 orders went through and stock ended at 0, in every run.
 - **Found and fixed real bottlenecks.** Profiling with Java Flight Recorder showed about 20% of CPU going to rebuilding the JWT parser on every request. Combined with sizing Tomcat's threads to the DB pool, order-history p95 dropped from ~780 ms to ~350 ms and flash-sale errors went from up to 248 to 0. Details are in [loadtest/RESULTS.md](loadtest/RESULTS.md).
+- **Payments that can't double-charge.** Online payment goes through Razorpay, and both the browser and Razorpay's webhook can report the same payment. Each payment change is one conditional `UPDATE`, so it counts exactly once. A retried checkout with the same `Idempotency-Key` returns the first order, unpaid orders release their stock after 30 minutes, and cancelled paid orders are refunded automatically. Explained in plain words in [docs/payments.md](docs/payments.md).
+- **Search that forgives typing.** Plurals and capitals don't matter, every word must match, results are ranked by where the match is, and a typo gets "Did you mean carrot?". Aisle counts, price and stock filters, six sorts and pages, all in the URL. It runs in memory on purpose, because prices depend on today's discounts ([docs/search.md](docs/search.md)).
+- **Emails at every step.** Confirmed, on its way, delivered, cancelled and refund sent, each in text and HTML. They're sent from events *after* the database commits, so nobody is emailed about an order that failed, and a slow mail server never holds up checkout ([docs/order-emails.md](docs/order-emails.md)).
 - **The server decides the price.** Totals are calculated from database prices and weekday discount rules, so a price edited in the browser is ignored.
 - **OTP guesses can't be reset by a rollback.** The order OTP check commits in its own transaction, so a wrong guess still counts even when the order fails.
-- **Access checks are tested.** Integration tests cover one customer trying to read or change another customer's orders.
+- **Roles with real access checks.** Users and members shop. Admins run the store and decide who is a member; the owner adds and removes admins. The rules live in `SecurityConfig`, and integration tests try every admin endpoint as a user and a member. Customers can't see or cancel each other's orders, and the last owner can't be demoted.
+- **A store dashboard** at `/admin` for admins and the owner: add products, restock with a reason, move orders from new to delivered, and manage people and roles (admins handle members, the owner handles admins), and (owner) see revenue and low stock.
+- **Stock you can trust.** Admin stock changes use the same single conditional `UPDATE` as checkout, so stock never goes below 0, even while orders come in. Every change is logged with who made it and why, and cancelling an order puts its items back.
 
 The reasoning behind each choice, with the alternatives I considered and their tradeoffs, is in [docs/design-decisions.md](docs/design-decisions.md).
 
@@ -39,6 +44,8 @@ flowchart LR
     A1 -. background thread .-> M[Gmail SMTP<br/>OTP + order emails]
     A2 -. background thread .-> M
     A1 -. verify ID token .-> G[Google Identity]
+    A1 -. orders, refunds .-> R[Razorpay]
+    R -. webhook .-> N
 ```
 
 - Each backend copy is stateless. Logins use JWTs, so any copy can serve any request and copies can be added with `BACKEND_REPLICAS=4`.
@@ -50,7 +57,7 @@ flowchart LR
 
 | Area | Tools |
 |---|---|
-| Backend | Java 17, Spring Boot 3.2 (Web, Data JPA, Security, Validation, Mail, Actuator), jjwt, Spring Security OAuth2 JOSE (Google ID tokens) |
+| Backend | Java 17, Spring Boot 3.2 (Web, Data JPA, Security, Validation, Mail, Actuator), jjwt, Spring Security OAuth2 JOSE (Google ID tokens), Razorpay REST API |
 | Frontend | React 18, Vite, Tailwind CSS, React Router, Axios |
 | Database | MySQL 8 (H2 for tests) |
 | Testing | JUnit 5, Mockito, Spring MockMvc, JaCoCo, Vitest, React Testing Library, k6 |
@@ -75,6 +82,7 @@ Endpoints marked 🔒 need an `Authorization: Bearer <jwt>` header.
 | POST | `/api/auth/forgot-password` | Email a password-reset code |
 | POST | `/api/auth/reset-password` | Set a new password with the reset code |
 | GET | `/api/products` | All products with today's price and stock left |
+| GET | `/api/products/search` | Search with filters, sorting and pages ([details](docs/search.md#the-api)) |
 | GET | `/api/products/{id}` | One product |
 | GET | `/api/offers/today` | Today's category offer (204 if none) |
 | GET | `/api/auth/me` 🔒 | Current user's profile |
@@ -84,7 +92,31 @@ Endpoints marked 🔒 need an `Authorization: Bearer <jwt>` header.
 | GET | `/api/orders/history` 🔒 | The user's orders |
 | GET | `/api/orders/{orderId}` 🔒 | One order (only if it's yours) |
 | POST | `/api/contact` | Send a message to the shop |
+| POST | `/api/orders/{orderId}/cancel` 🔒 | Cancel your own order while it's still pending (paid orders are refunded) |
+| GET | `/api/payments/config` | Whether online payment is on, and Razorpay's public key |
+| POST | `/api/payments/verify` 🔒 | Check the reply from Razorpay's window and mark the order paid |
+| POST | `/api/payments/orders/{id}/retry` 🔒 | Pay again for an order that isn't paid yet |
+| POST | `/api/payments/webhook` | Payment events from Razorpay, checked by signature |
 | GET | `/actuator/health` | Health check used by Docker and nginx |
+
+**Admin and owner** (role `ADMIN` or `OWNER`, 🛠️) and **owner only** (👑):
+
+| Method | Path | What it does |
+|---|---|---|
+| GET | `/api/admin/products` 🛠️ | All products, hidden ones included |
+| POST | `/api/admin/products` 🛠️ | Add a product with its starting stock |
+| PUT | `/api/admin/products/{id}` 🛠️ | Edit name, picture, category and price |
+| PATCH | `/api/admin/products/{id}/active` 🛠️ | Hide or show a product in the shop |
+| POST | `/api/admin/products/{id}/stock` 🛠️ | Add or remove stock (`{"change": 10, "reason": "..."}`), never below 0 |
+| GET | `/api/admin/products/{id}/stock` 🛠️ | Stock history: who changed what, and why |
+| GET | `/api/admin/categories` 🛠️ | Categories for the product form |
+| GET | `/api/admin/orders?status=` 🛠️ | Every order, newest first, with the statuses it can move to |
+| PATCH | `/api/admin/orders/{id}/status` 🛠️ | Move an order on; cancelling restocks its items and refunds paid ones |
+| POST | `/api/admin/orders/{id}/refund` 🛠️ | Try a failed refund again |
+| GET | `/api/admin/users?q=` 🛠️ | People, with the roles you may give each one |
+| PATCH | `/api/admin/users/{id}/role` 🛠️ | Change a role. Admins: user ↔ member only. Owner: any role |
+| GET | `/api/admin/role-changes` 🛠️ | Recent role changes and who made them |
+| GET | `/api/owner/summary` 👑 | Orders by status, revenue and low-stock products |
 
 <details>
 <summary>Example: placing an order</summary>
@@ -92,6 +124,7 @@ Endpoints marked 🔒 need an `Authorization: Bearer <jwt>` header.
 ```http
 POST /api/orders/place-order
 Authorization: Bearer eyJhbGciOi...
+Idempotency-Key: 6f1c2b9e-checkout-1
 Content-Type: application/json
 
 {
@@ -109,10 +142,10 @@ Content-Type: application/json
 `201 Created`
 
 ```json
-{ "orderId": 41, "status": "PENDING", "totalAmount": 398.00, "orderDate": "2026-11-21T13:52:10", "message": "Order placed successfully!" }
+{ "orderId": 41, "status": "PENDING", "totalAmount": 398.00, "orderDate": "2026-11-21T13:52:10", "paymentStatus": "PAY_ON_DELIVERY", "message": "Order placed successfully!" }
 ```
 
-Wrong or expired code, unknown product or not enough stock returns `400` with a `message`.
+With `"paymentMethod": "online"` the reply also has a `payment` object (Razorpay order id and amount) for opening the payment window. Sending the same `Idempotency-Key` again returns this order instead of creating a new one. Wrong or expired code, unknown product or not enough stock returns `400` with a `message`.
 </details>
 
 ## Quick start
@@ -146,10 +179,10 @@ src/test/java/                  backend unit and integration tests
 src/ (pages, components, ...)   React app
 Untitled.sql                    schema and sample data
 deploy/                         nginx, Caddy and production compose file
-docs/                           setup guide, design decisions, deployment, Google sign-in
+docs/                           setup guide, design decisions, payments, search, order emails, deployment, Google sign-in
 loadtest/                       k6 scripts and results
 ```
 
 ## What's next
 
-Admin screens for products, stock and orders, Flyway migrations, an idempotency key on checkout, rate limiting on the OTP endpoints, and an admin screen for order status. The full list, in priority order, is at the end of [docs/design-decisions.md](docs/design-decisions.md#what-id-do-next).
+Flyway migrations, a transactional outbox for emails and refunds, rate limiting on the OTP endpoints, and and member pricing. The full list, in priority order, is at the end of [docs/design-decisions.md](docs/design-decisions.md#what-id-do-next).

@@ -35,6 +35,20 @@ public class Product {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    // Hidden products stay in the database so old orders still point at them,
+    // but customers can't see or buy them. DEFAULT TRUE so that adding the
+    // column to an existing database keeps every product visible.
+    @Column(nullable = false, columnDefinition = "BOOLEAN NOT NULL DEFAULT TRUE")
+    private boolean active = true;
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     public Long getId() {
         return id;
     }

@@ -21,4 +21,19 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
  @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity - :quantity "
       + "WHERE p.id = :productId AND p.stockQuantity >= :quantity")
  int decrementStock(@Param("productId") Long productId, @Param("quantity") int quantity);
+
+ /**
+  * Adds (positive) or removes (negative) stock in one statement, refusing to go
+  * below zero. Returns 1 if it changed, 0 if it would have gone negative.
+  */
+ @Modifying(flushAutomatically = true, clearAutomatically = true)
+ @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity + :change "
+      + "WHERE p.id = :productId AND p.stockQuantity + :change >= 0")
+ int adjustStock(@Param("productId") Long productId, @Param("change") int change);
+
+ /** Products customers can see. */
+ List<Product> findByActiveTrue();
+
+ /** Visible products with this much stock or less, lowest first. */
+ List<Product> findByActiveTrueAndStockQuantityLessThanEqualOrderByStockQuantityAsc(int threshold);
 }
