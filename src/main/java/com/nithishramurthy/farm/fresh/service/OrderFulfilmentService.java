@@ -8,6 +8,8 @@ import com.nithishramurthy.farm.fresh.entity.PaymentStatus;
 import com.nithishramurthy.farm.fresh.entity.Product;
 import com.nithishramurthy.farm.fresh.entity.StockMovement;
 import com.nithishramurthy.farm.fresh.exception.ResourceNotFoundException;
+import com.nithishramurthy.farm.fresh.notification.OrderEmailEvent;
+import com.nithishramurthy.farm.fresh.notification.OrderEmailType;
 import com.nithishramurthy.farm.fresh.payment.OrderCancelledEvent;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
 import com.nithishramurthy.farm.fresh.repository.ProductRepository;
@@ -23,6 +25,9 @@ import java.util.List;
 /** Moves orders through PENDING -> PROCESSING -> SHIPPED -> DELIVERED, or cancels them. */
 @Service
 public class OrderFulfilmentService {
+
+    /** Cancel reason when Razorpay couldn't be reached at checkout. The customer saw the error, so no email. */
+    public static final String PAYMENT_SETUP_FAILED = "payment-setup-failed";
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
@@ -110,6 +115,11 @@ public class OrderFulfilmentService {
                 orderRepository.movePayment(order.getId(), PaymentStatus.PAID, PaymentStatus.REFUND_PENDING, null);
             }
             order = reload(order);
+            // The "cancelled" email is queued before the refund, so the customer
+            // hears "cancelled" before "refund sent" (after-commit listeners run in order).
+            if (!PAYMENT_SETUP_FAILED.equals(changedBy)) {
+                events.publishEvent(new OrderEmailEvent(order.getId(), OrderEmailType.CANCELLED));
+            }
             events.publishEvent(new OrderCancelledEvent(order.getId()));
         }
         if (next == OrderStatus.DELIVERED) {
@@ -118,7 +128,13 @@ public class OrderFulfilmentService {
             order = reload(order);
         }
         order.setStatus(next);
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        if (next == OrderStatus.SHIPPED) {
+            events.publishEvent(new OrderEmailEvent(saved.getId(), OrderEmailType.SHIPPED));
+        } else if (next == OrderStatus.DELIVERED) {
+            events.publishEvent(new OrderEmailEvent(saved.getId(), OrderEmailType.DELIVERED));
+        }
+        return saved;
     }
 
     /**
