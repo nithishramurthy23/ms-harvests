@@ -357,7 +357,14 @@ Products, prices and stock live in **the database only**. The website loads them
 
 To become the owner, put your email in `OWNER_EMAIL` in `.env` and restart the backend. If you've already signed up, you're promoted at startup; otherwise you become owner when you sign up. From then on, give other people roles through the API (`PATCH /api/owner/users/{id}/role`). No SQL is needed.
 
-Admins and owners manage the shop through `/api/admin/**` (the endpoint table is in the [README](../README.md#api)). Every stock change is logged with who made it and why (`GET /api/admin/products/{id}/stock`). Stock can never go below zero, and cancelling an order puts its items back.
+Admins and owners get a **Manage store** link in the account menu, which opens the dashboard at `/admin`:
+
+- **Overview** (owner): money collected and still to collect, orders by status, and what's running low.
+- **Products & stock**: add a product with its starting stock, edit details and price, hide or show it, and add or remove stock with a reason. The clock icon shows the history.
+- **Orders**: new orders first. Buttons move each one to packing, shipped and delivered, or cancel it.
+- **People** (owner): change anyone's role.
+
+Behind the dashboard is the `/api/admin/**` API (the endpoint table is in the [README](../README.md#api)). Every stock change is logged with who made it and why (`GET /api/admin/products/{id}/stock`). Stock can never go below zero, and cancelling an order puts its items back.
 
 You can still use SQL if you prefer. For an app that's already running, use SQL rather than re-running `Untitled.sql` (which wipes users and orders):
 

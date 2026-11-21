@@ -24,6 +24,7 @@ It's a Spring Boot REST API with a React frontend. The backend runs as several s
 - **The server decides the price.** Totals are calculated from database prices and weekday discount rules, so a price edited in the browser is ignored.
 - **OTP guesses can't be reset by a rollback.** The order OTP check commits in its own transaction, so a wrong guess still counts even when the order fails.
 - **Roles with real access checks.** Users and members shop, admins run the store, and the owner also hands out roles. The rules live in `SecurityConfig`, and integration tests try every admin endpoint as a user and a member. Customers can't see or cancel each other's orders, and the last owner can't be demoted.
+- **A store dashboard** at `/admin` for admins and the owner: add products, restock with a reason, move orders from new to delivered, and (owner) assign roles and see revenue and low stock.
 - **Stock you can trust.** Admin stock changes use the same single conditional `UPDATE` as checkout, so stock never goes below 0, even while orders come in. Every change is logged with who made it and why, and cancelling an order puts its items back.
 
 The reasoning behind each choice, with the alternatives I considered and their tradeoffs, is in [docs/design-decisions.md](docs/design-decisions.md).
@@ -171,4 +172,4 @@ loadtest/                       k6 scripts and results
 
 ## What's next
 
-An admin dashboard in React, Flyway migrations, an idempotency key on checkout, rate limiting on the OTP endpoints, and an admin screen for order status. The full list, in priority order, is at the end of [docs/design-decisions.md](docs/design-decisions.md#what-id-do-next).
+Flyway migrations, an idempotency key on checkout, rate limiting on the OTP endpoints, and an admin screen for order status. The full list, in priority order, is at the end of [docs/design-decisions.md](docs/design-decisions.md#what-id-do-next).
