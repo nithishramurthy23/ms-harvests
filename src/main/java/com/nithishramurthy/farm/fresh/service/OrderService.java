@@ -6,18 +6,19 @@ import com.nithishramurthy.farm.fresh.dto.OrderResponse;
 import com.nithishramurthy.farm.fresh.entity.Order;
 import com.nithishramurthy.farm.fresh.entity.OrderItem;
 import com.nithishramurthy.farm.fresh.entity.OrderStatus;
+import com.nithishramurthy.farm.fresh.entity.PaymentStatus;
 import com.nithishramurthy.farm.fresh.entity.Product;
 import com.nithishramurthy.farm.fresh.entity.User;
+import com.nithishramurthy.farm.fresh.notification.OrderEmailEvent;
+import com.nithishramurthy.farm.fresh.notification.OrderEmailType;
+import com.nithishramurthy.farm.fresh.payment.PaymentService;
+import com.nithishramurthy.farm.fresh.payment.PaymentStart;
 import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
 import com.nithishramurthy.farm.fresh.repository.ProductRepository;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
 
-import com.nithishramurthy.farm.fresh.entity.PaymentStatus;
-import com.nithishramurthy.farm.fresh.payment.PaymentService;
-import com.nithishramurthy.farm.fresh.payment.PaymentStart;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,21 +36,19 @@ import java.util.Optional;
 @Service
 public class OrderService {
 
-    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
-
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
     private final OtpService otpService;
-    private final MailService mailService;
+    private final ApplicationEventPublisher events;
     private final ProductService productService;
     private final TransactionTemplate transactionTemplate;
     private final PaymentService paymentService;
 
     public OrderService(OrderRepository orderRepository, UserRepository userRepository,
                         ProductRepository productRepository, OrderItemRepository orderItemRepository,
-                        OtpService otpService, MailService mailService,
+                        OtpService otpService, ApplicationEventPublisher events,
                         ProductService productService, PlatformTransactionManager transactionManager,
                         PaymentService paymentService) {
         this.orderRepository = orderRepository;
@@ -57,7 +56,7 @@ public class OrderService {
         this.productRepository = productRepository;
         this.orderItemRepository = orderItemRepository;
         this.otpService = otpService;
-        this.mailService = mailService;
+        this.events = events;
         this.productService = productService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.paymentService = paymentService;
@@ -146,11 +145,7 @@ public class OrderService {
             return response;
         }
 
-        try {
-            mailService.sendOrderConfirmationEmail(savedOrder, user.getEmail(), user.getName());
-        } catch (Exception e) {
-            log.warn("Failed to send order confirmation email for order {}", savedOrder.getId(), e);
-        }
+        events.publishEvent(new OrderEmailEvent(savedOrder.getId(), OrderEmailType.CONFIRMED));
         return response(savedOrder, "Order placed successfully!");
     }
 

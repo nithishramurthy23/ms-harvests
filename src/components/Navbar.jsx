@@ -69,12 +69,13 @@ export default function Navbar() {
 
       <header className="sticky top-0 z-40 border-b border-bark/10 bg-paper/95 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center gap-4 lg:gap-8">
-            <Link to="/" className="flex flex-none items-center gap-2.5">
-              <img src={logo} alt="" className="h-10 w-10 rounded-full ring-1 ring-bark/10" />
-              <span className="leading-none">
-                <span className="block font-display text-lg font-bold text-green-800 sm:text-xl">
-                  MS Fresh Harvest
+          <div className="flex h-16 items-center gap-2 sm:gap-4 lg:gap-8">
+            <Link to="/" className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+              <img src={logo} alt="" className="h-10 w-10 flex-none rounded-full ring-1 ring-bark/10" />
+              <span className="min-w-0 leading-none">
+                <span className="block truncate font-display text-base font-bold text-green-800 sm:text-xl">
+                  {/* "MS" is dropped on the narrowest phones so the cart and menu still fit */}
+                  <span className="hidden min-[400px]:inline">MS </span>Fresh Harvest
                 </span>
                 <span className="hidden text-[11px] uppercase tracking-[0.16em] text-bark/50 sm:block">
                   Ooty · The Nilgiris

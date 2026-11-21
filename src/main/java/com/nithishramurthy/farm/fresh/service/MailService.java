@@ -1,14 +1,11 @@
 package com.nithishramurthy.farm.fresh.service;
 
 import com.nithishramurthy.farm.fresh.dto.ContactFormRequest;
-import com.nithishramurthy.farm.fresh.entity.Order; // Import Order entity
-import com.nithishramurthy.farm.fresh.entity.OrderItem; // Import OrderItem entity
 import com.nithishramurthy.farm.fresh.mail.MailConstant;
+import com.nithishramurthy.farm.fresh.notification.OrderEmail;
+
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
-import java.time.format.DateTimeFormatter; // Import DateTimeFormatter
 
 /** Builds the app's emails (OTP, contact form, order confirmation) and hands them to MailDispatcher. */
 @Service
@@ -64,34 +61,8 @@ public class MailService {
         mailDispatcher.send(message);
     }
 
-    /**
-     * Sends an order confirmation email to the customer.
-     * @param order The saved Order entity.
-     * @param recipientEmail The customer's email address.
-     * @param recipientName The customer's name.
-     */
-    public void sendOrderConfirmationEmail(Order order, String recipientEmail, String recipientName) {
-        String subject = "Farm Fresh - Your Order #" + order.getId() + " Confirmation";
-
-        StringBuilder body = new StringBuilder();
-        body.append("Dear ").append(recipientName).append(",\n\n");
-        body.append("Thank you for your order with Farm Fresh! Here are the details of your recent purchase:\n\n");
-        body.append("Order ID: ").append(order.getId()).append("\n");
-        body.append("Order Date: ").append(order.getOrderDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))).append("\n");
-        body.append("Total Amount: ₹").append(order.getTotalAmount().setScale(2, BigDecimal.ROUND_HALF_UP)).append("\n\n");
-        body.append("Shipping Address: ").append(order.getShippingAddress()).append("\n");
-        body.append("Payment Method: ").append(order.getPaymentMethod()).append("\n\n");
-        body.append("Order Items:\n");
-        order.getOrderItems().forEach(item -> {
-            body.append("- ").append(item.getProductName())
-                .append(" x ").append(item.getQuantity())
-                .append(" @ ₹").append(item.getProductPrice().setScale(2, BigDecimal.ROUND_HALF_UP)) // CORRECTED: Changed to getProductPrice()
-                .append(" each\n");
-        });
-        body.append("\nWe will notify you once your order is shipped.\n\n");
-        body.append("Thanks for choosing Farm Fresh!\n");
-        body.append("The Farm Fresh Team");
-
-        sendTestMail(recipientEmail, subject, body.toString());
+    /** Queues an order email (plain text plus HTML). Built by OrderEmailTemplates. */
+    public void sendOrderEmail(OrderEmail email) {
+        mailDispatcher.sendHtml(email.to(), email.subject(), email.text(), email.html());
     }
 }
