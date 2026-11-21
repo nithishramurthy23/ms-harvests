@@ -1,6 +1,6 @@
 # Design decisions
 
-This page explains the main engineering choices in Farm Fresh: what problem each one solves, what I picked, what else I considered, and what it costs. The setup guide is in the [README](../README.md).
+This page explains the main engineering choices in Farm Fresh: what problem each one solves, what I picked, what else I considered, and what it costs. The setup guide is in [setup.md](setup.md).
 
 ## Architecture at a glance
 
