@@ -23,8 +23,8 @@ It's a Spring Boot REST API with a React frontend. The backend runs as several s
 - **Found and fixed real bottlenecks.** Profiling with Java Flight Recorder showed about 20% of CPU going to rebuilding the JWT parser on every request. Combined with sizing Tomcat's threads to the DB pool, order-history p95 dropped from ~780 ms to ~350 ms and flash-sale errors went from up to 248 to 0. Details are in [loadtest/RESULTS.md](loadtest/RESULTS.md).
 - **The server decides the price.** Totals are calculated from database prices and weekday discount rules, so a price edited in the browser is ignored.
 - **OTP guesses can't be reset by a rollback.** The order OTP check commits in its own transaction, so a wrong guess still counts even when the order fails.
-- **Roles with real access checks.** Users and members shop, admins run the store, and the owner also hands out roles. The rules live in `SecurityConfig`, and integration tests try every admin endpoint as a user and a member. Customers can't see or cancel each other's orders, and the last owner can't be demoted.
-- **A store dashboard** at `/admin` for admins and the owner: add products, restock with a reason, move orders from new to delivered, and (owner) assign roles and see revenue and low stock.
+- **Roles with real access checks.** Users and members shop. Admins run the store and decide who is a member; the owner adds and removes admins. The rules live in `SecurityConfig`, and integration tests try every admin endpoint as a user and a member. Customers can't see or cancel each other's orders, and the last owner can't be demoted.
+- **A store dashboard** at `/admin` for admins and the owner: add products, restock with a reason, move orders from new to delivered, and manage people and roles (admins handle members, the owner handles admins), and (owner) see revenue and low stock.
 - **Stock you can trust.** Admin stock changes use the same single conditional `UPDATE` as checkout, so stock never goes below 0, even while orders come in. Every change is logged with who made it and why, and cancelling an order puts its items back.
 
 The reasoning behind each choice, with the alternatives I considered and their tradeoffs, is in [docs/design-decisions.md](docs/design-decisions.md).
@@ -102,8 +102,9 @@ Endpoints marked 🔒 need an `Authorization: Bearer <jwt>` header.
 | GET | `/api/admin/categories` 🛠️ | Categories for the product form |
 | GET | `/api/admin/orders?status=` 🛠️ | Every order, newest first, with the statuses it can move to |
 | PATCH | `/api/admin/orders/{id}/status` 🛠️ | Move an order on; cancelling restocks its items |
-| GET | `/api/owner/users` 👑 | Everyone and their role |
-| PATCH | `/api/owner/users/{id}/role` 👑 | Make someone a user, member, admin or owner |
+| GET | `/api/admin/users?q=` 🛠️ | People, with the roles you may give each one |
+| PATCH | `/api/admin/users/{id}/role` 🛠️ | Change a role. Admins: user ↔ member only. Owner: any role |
+| GET | `/api/admin/role-changes` 🛠️ | Recent role changes and who made them |
 | GET | `/api/owner/summary` 👑 | Orders by status, revenue and low-stock products |
 
 <details>
@@ -172,4 +173,4 @@ loadtest/                       k6 scripts and results
 
 ## What's next
 
-Flyway migrations, an idempotency key on checkout, rate limiting on the OTP endpoints, and an admin screen for order status. The full list, in priority order, is at the end of [docs/design-decisions.md](docs/design-decisions.md#what-id-do-next).
+Flyway migrations, an idempotency key on checkout, rate limiting on the OTP endpoints, and and member pricing. The full list, in priority order, is at the end of [docs/design-decisions.md](docs/design-decisions.md#what-id-do-next).

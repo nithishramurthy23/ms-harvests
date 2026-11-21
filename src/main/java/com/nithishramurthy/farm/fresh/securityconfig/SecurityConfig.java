@@ -100,7 +100,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/offers/today").permitAll()
                 // Running the store: products, stock and orders. Users and members can't.
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OWNER")
-                // Roles and sales figures are for the owner only.
+                // Sales figures are for the owner only. (Who may give which role is
+                // checked in UserManagementService: admins handle members, the owner handles admins.)
                 .requestMatchers("/api/owner/**").hasRole("OWNER")
                 .anyRequest().authenticated()
             )

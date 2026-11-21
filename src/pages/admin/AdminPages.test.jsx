@@ -21,6 +21,9 @@ vi.mock("./adminApi", async (importOriginal) => {
       setActive: vi.fn(),
       orders: vi.fn(),
       setOrderStatus: vi.fn(),
+      users: vi.fn(),
+      setRole: vi.fn(),
+      roleChanges: vi.fn(),
     },
   };
 });
@@ -29,6 +32,7 @@ import { adminApi } from "./adminApi";
 import AdminLayout from "./AdminLayout";
 import AdminProductsPage from "./AdminProductsPage";
 import AdminOrdersPage from "./AdminOrdersPage";
+import PeoplePage from "./PeoplePage";
 
 const kiwi = {
   id: 7, name: "Kiwi", categoryId: 1, categoryName: "Fruits", price: 149, weight: "500 g",
@@ -42,6 +46,7 @@ const renderAdmin = (page, path = "/admin/products") =>
         <Route path="/admin" element={<AdminLayout />}>
           <Route path="products" element={page} />
           <Route path="orders" element={page} />
+          <Route path="people" element={page} />
         </Route>
         <Route path="/auth" element={<p>Login page</p>} />
       </Routes>
@@ -71,11 +76,12 @@ describe("store dashboard access", () => {
     expect(screen.getByText("Login page")).toBeInTheDocument();
   });
 
-  it("shows the owner-only tabs to the owner but not to admins", async () => {
+  it("shows the owner-only tab to the owner but not to admins", async () => {
     currentUser = { id: 1, name: "Admin", role: "ADMIN" };
     const { unmount } = renderAdmin(<AdminProductsPage />);
     await screen.findByText("Kiwi");
-    expect(screen.queryByRole("link", { name: "People" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Overview" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "People" })).toBeInTheDocument();
     unmount();
 
     currentUser = { id: 2, name: "Owner", role: "OWNER" };
@@ -147,5 +153,64 @@ describe("orders", () => {
     expect(adminApi.setOrderStatus).toHaveBeenCalledWith(41, "PROCESSING");
     // the "New" filter is on, so the order leaves the list
     expect(await screen.findByText("No new orders.")).toBeInTheDocument();
+  });
+});
+
+describe("people and roles", () => {
+  const person = (id, name, role, assignableRoles) => ({
+    id, name, email: `${name.toLowerCase()}@example.com`, role, verified: true, assignableRoles,
+  });
+
+  beforeEach(() => {
+    adminApi.roleChanges.mockResolvedValue([]);
+  });
+
+  it("lets an admin make a user a member, but not touch admins", async () => {
+    const user = userEvent.setup();
+    currentUser = { id: 1, name: "Admin", role: "ADMIN" };
+    adminApi.users.mockResolvedValue([
+      person(1, "Admin", "ADMIN", []),
+      person(2, "Ravi", "ADMIN", []),
+      person(3, "Asha", "USER", ["USER", "MEMBER"]),
+    ]);
+    adminApi.setRole.mockResolvedValue(person(3, "Asha", "MEMBER", ["USER", "MEMBER"]));
+    renderAdmin(<PeoplePage />, "/admin/people");
+
+    const select = await screen.findByLabelText("Role for asha@example.com");
+    expect(within(select).getAllByRole("option").map((o) => o.value)).toEqual(["USER", "MEMBER"]);
+    expect(screen.queryByLabelText("Role for ravi@example.com")).not.toBeInTheDocument();
+    expect(screen.getByText(/Only the owner can add or remove admins/)).toBeInTheDocument();
+
+    await user.selectOptions(select, "MEMBER");
+    expect(adminApi.setRole).toHaveBeenCalledWith(3, "MEMBER");
+    expect(await screen.findByText("Asha is now member.")).toBeInTheDocument();
+    expect(adminApi.roleChanges).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets the owner make someone an admin and shows the log", async () => {
+    const user = userEvent.setup();
+    currentUser = { id: 1, name: "Owner", role: "OWNER" };
+    adminApi.users.mockResolvedValue([person(3, "Asha", "MEMBER", ["USER", "MEMBER", "ADMIN", "OWNER"])]);
+    adminApi.setRole.mockResolvedValue(person(3, "Asha", "ADMIN", ["USER", "MEMBER", "ADMIN", "OWNER"]));
+    adminApi.roleChanges.mockResolvedValue([
+      { id: 9, userName: "Asha", userEmail: "asha@example.com", fromRole: "USER", toRole: "MEMBER",
+        changedBy: "admin@example.com", changedAt: "2026-11-21T10:00:00Z" },
+    ]);
+    renderAdmin(<PeoplePage />, "/admin/people");
+
+    expect(await screen.findByText(/User → Member/)).toBeInTheDocument();
+    await user.selectOptions(await screen.findByLabelText("Role for asha@example.com"), "ADMIN");
+    expect(adminApi.setRole).toHaveBeenCalledWith(3, "ADMIN");
+  });
+
+  it("shows the server's message when a change is refused", async () => {
+    const user = userEvent.setup();
+    currentUser = { id: 2, name: "Owner", role: "OWNER" };
+    adminApi.users.mockResolvedValue([person(1, "Founder", "OWNER", ["USER", "MEMBER", "ADMIN", "OWNER"])]);
+    adminApi.setRole.mockRejectedValue({ response: { data: { message: "The shop needs at least one owner." } } });
+    renderAdmin(<PeoplePage />, "/admin/people");
+
+    await user.selectOptions(await screen.findByLabelText("Role for founder@example.com"), "USER");
+    expect(await screen.findByText("The shop needs at least one owner.")).toBeInTheDocument();
   });
 });

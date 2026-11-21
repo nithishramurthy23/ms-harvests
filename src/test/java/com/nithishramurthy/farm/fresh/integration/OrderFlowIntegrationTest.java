@@ -8,6 +8,7 @@ import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
 import com.nithishramurthy.farm.fresh.repository.ProductRepository;
 import com.nithishramurthy.farm.fresh.repository.StockMovementRepository;
+import com.nithishramurthy.farm.fresh.repository.RoleChangeRepository;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,7 @@ class OrderFlowIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private RoleChangeRepository roleChangeRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private ProductRepository productRepository;
     @Autowired private OrderRepository orderRepository;
@@ -67,6 +69,7 @@ class OrderFlowIntegrationTest {
         orderItemRepository.deleteAll();
         orderRepository.deleteAll();
         productRepository.deleteAll();
+        roleChangeRepository.deleteAll();
         userRepository.deleteAll();
 
         plums = new Product();

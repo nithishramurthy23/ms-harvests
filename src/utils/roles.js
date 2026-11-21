@@ -6,6 +6,8 @@ export const isOwner = (user) => user?.role === "OWNER";
 export const ROLES = [
   { value: "USER", label: "User", hint: "Shops" },
   { value: "MEMBER", label: "Member", hint: "Shops (member perks later)" },
-  { value: "ADMIN", label: "Admin", hint: "Products, stock and orders" },
-  { value: "OWNER", label: "Owner", hint: "Everything, plus roles" },
+  { value: "ADMIN", label: "Admin", hint: "Products, stock, orders and members" },
+  { value: "OWNER", label: "Owner", hint: "Everything, plus who is an admin" },
 ];
+
+export const roleLabel = (value) => ROLES.find((r) => r.value === value)?.label ?? value;

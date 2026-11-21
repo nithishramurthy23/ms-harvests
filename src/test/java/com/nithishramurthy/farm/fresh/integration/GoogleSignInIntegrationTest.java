@@ -6,6 +6,7 @@ import com.nithishramurthy.farm.fresh.mainprog.FarmFreshApplication;
 import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
 import com.nithishramurthy.farm.fresh.repository.StockMovementRepository;
+import com.nithishramurthy.farm.fresh.repository.RoleChangeRepository;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
 import com.nithishramurthy.farm.fresh.securityconfig.GoogleTokenVerifier;
 import com.nithishramurthy.farm.fresh.securityconfig.GoogleTokenVerifier.GoogleUser;
@@ -40,6 +41,7 @@ class GoogleSignInIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private RoleChangeRepository roleChangeRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private OrderRepository orderRepository;
     @Autowired private OrderItemRepository orderItemRepository;
@@ -54,6 +56,7 @@ class GoogleSignInIntegrationTest {
         stockMovementRepository.deleteAll();
         orderItemRepository.deleteAll();
         orderRepository.deleteAll();
+        roleChangeRepository.deleteAll();
         userRepository.deleteAll();
     }
 

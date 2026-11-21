@@ -18,7 +18,8 @@ import NotFoundPage from "./pages/NotFoundPage";
 import AdminLayout, { AdminHome } from "./pages/admin/AdminLayout";
 import AdminProductsPage from "./pages/admin/AdminProductsPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
-import { OwnerPeoplePage, OwnerSummaryPage } from "./pages/admin/OwnerPages";
+import { OwnerSummaryPage } from "./pages/admin/OwnerPages";
+import PeoplePage from "./pages/admin/PeoplePage";
 import ScrollToTop from "./components/ScrollToTop";
 
 import { CartProvider } from "./context/CartContext";
@@ -64,7 +65,7 @@ function App() {
                     <Route path="overview" element={<OwnerSummaryPage />} />
                     <Route path="products" element={<AdminProductsPage />} />
                     <Route path="orders" element={<AdminOrdersPage />} />
-                    <Route path="people" element={<OwnerPeoplePage />} />
+                    <Route path="people" element={<PeoplePage />} />
                   </Route>
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>

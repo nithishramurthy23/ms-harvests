@@ -1,5 +1,6 @@
 package com.nithishramurthy.farm.fresh.controller.admin;
 
+import com.nithishramurthy.farm.fresh.exception.NotAllowedException;
 import com.nithishramurthy.farm.fresh.exception.ResourceNotFoundException;
 
 import org.slf4j.Logger;
@@ -18,7 +19,8 @@ import java.util.Map;
 /**
  * Turns exceptions from the admin and owner APIs into {"message": ...} bodies
  * with the right status, instead of a try/catch in every endpoint:
- * not found -> 404, bad input -> 400, not allowed right now -> 409.
+ * not found -> 404, bad input -> 400, role doesn't allow it -> 403,
+ * not allowed right now -> 409.
  */
 @RestControllerAdvice(basePackageClasses = AdminApiExceptionHandler.class)
 public class AdminApiExceptionHandler {
@@ -45,6 +47,11 @@ public class AdminApiExceptionHandler {
         body.put("message", "Please fix the highlighted fields.");
         body.put("fields", fields);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(NotAllowedException.class)
+    public ResponseEntity<Map<String, Object>> forbidden(NotAllowedException e) {
+        return body(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
     @ExceptionHandler(IllegalStateException.class)

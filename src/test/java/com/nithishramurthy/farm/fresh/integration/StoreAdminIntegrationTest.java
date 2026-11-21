@@ -12,6 +12,7 @@ import com.nithishramurthy.farm.fresh.repository.OrderItemRepository;
 import com.nithishramurthy.farm.fresh.repository.OrderRepository;
 import com.nithishramurthy.farm.fresh.repository.ProductRepository;
 import com.nithishramurthy.farm.fresh.repository.StockMovementRepository;
+import com.nithishramurthy.farm.fresh.repository.RoleChangeRepository;
 import com.nithishramurthy.farm.fresh.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,7 @@ class StoreAdminIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private RoleChangeRepository roleChangeRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private ProductRepository productRepository;
     @Autowired private CategoryRepository categoryRepository;
@@ -73,6 +75,7 @@ class StoreAdminIntegrationTest {
         discountRuleRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
+        roleChangeRepository.deleteAll();
         userRepository.deleteAll();
 
         Category fruits = new Category();
@@ -232,7 +235,8 @@ class StoreAdminIntegrationTest {
             send(token, post("/api/admin/products/" + kiwiId + "/stock"), Map.of("change", 100))
                     .andExpect(status().isForbidden());
             send(token, get("/api/admin/orders"), null).andExpect(status().isForbidden());
-            send(token, get("/api/owner/users"), null).andExpect(status().isForbidden());
+            send(token, get("/api/admin/users"), null).andExpect(status().isForbidden());
+            send(token, get("/api/owner/summary"), null).andExpect(status().isForbidden());
         }
         assertThat(stockOf(kiwiId)).isEqualTo(5);
 
@@ -240,32 +244,96 @@ class StoreAdminIntegrationTest {
     }
 
     @Test
-    void onlyTheOwnerManagesRoles() throws Exception {
+    void ownerManagesAdminsAndAdminsManageMembers() throws Exception {
         String owner = signUp("owner@example.com", Role.OWNER);
         String admin = signUp("admin@example.com", Role.ADMIN);
         signUp("asha@example.com", Role.USER);
-        Long ashaId = userRepository.findByEmail("asha@example.com").orElseThrow().getId();
-        Long ownerId = userRepository.findByEmail("owner@example.com").orElseThrow().getId();
+        signUp("ravi@example.com", Role.USER);
+        Long ashaId = idOf("asha@example.com");
+        Long raviId = idOf("ravi@example.com");
+        Long adminId = idOf("admin@example.com");
 
-        // admins run the store but can't hand out roles
-        send(admin, patch("/api/owner/users/" + ashaId + "/role"), Map.of("role", "ADMIN"))
-                .andExpect(status().isForbidden());
+        // the owner promotes Ravi to admin
+        send(owner, patch("/api/admin/users/" + raviId + "/role"), Map.of("role", "ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("ADMIN"));
 
-        send(owner, patch("/api/owner/users/" + ashaId + "/role"), Map.of("role", "MEMBER"))
+        // an admin moves customers between user and member, both ways
+        send(admin, patch("/api/admin/users/" + ashaId + "/role"), Map.of("role", "MEMBER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("MEMBER"));
-        assertThat(userRepository.findById(ashaId).orElseThrow().getRole()).isEqualTo("ROLE_MEMBER");
+        send(admin, patch("/api/admin/users/" + ashaId + "/role"), Map.of("role", "USER"))
+                .andExpect(status().isOk());
 
-        // the owner can't lock themselves out
-        send(owner, patch("/api/owner/users/" + ownerId + "/role"), Map.of("role", "USER"))
-                .andExpect(status().isConflict());
+        // but can't hand out admin or owner
+        send(admin, patch("/api/admin/users/" + ashaId + "/role"), Map.of("role", "ADMIN"))
+                .andExpect(status().isForbidden());
+        send(admin, patch("/api/admin/users/" + ashaId + "/role"), Map.of("role", "OWNER"))
+                .andExpect(status().isForbidden());
+        // and can't touch another admin or the owner
+        send(admin, patch("/api/admin/users/" + raviId + "/role"), Map.of("role", "USER"))
+                .andExpect(status().isForbidden());
+        send(admin, patch("/api/admin/users/" + idOf("owner@example.com") + "/role"), Map.of("role", "USER"))
+                .andExpect(status().isForbidden());
+        assertThat(userRepository.findById(raviId).orElseThrow().getRole()).isEqualTo("ROLE_ADMIN");
 
-        // owners can also do everything admins do
-        send(owner, get("/api/admin/products"), null).andExpect(status().isOk());
-        send(owner, get("/api/owner/summary"), null)
+        // the owner removes an admin
+        send(owner, patch("/api/admin/users/" + adminId + "/role"), Map.of("role", "USER"))
+                .andExpect(status().isOk());
+
+        // every change is logged, newest first, with who made it
+        send(owner, get("/api/admin/role-changes"), null)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ordersByStatus.PENDING").value(0))
-                .andExpect(jsonPath("$.customers").value(1));
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[0].userEmail").value("admin@example.com"))
+                .andExpect(jsonPath("$[0].fromRole").value("ADMIN"))
+                .andExpect(jsonPath("$[0].toRole").value("USER"))
+                .andExpect(jsonPath("$[0].changedBy").value("owner@example.com"));
+    }
+
+    @Test
+    void peopleListShowsOnlyTheRolesYouMayGive() throws Exception {
+        String owner = signUp("owner@example.com", Role.OWNER);
+        String admin = signUp("admin@example.com", Role.ADMIN);
+        signUp("asha@example.com", Role.MEMBER);
+
+        send(admin, get("/api/admin/users").param("q", "asha"), null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].assignableRoles.length()").value(2));
+        send(admin, get("/api/admin/users").param("q", "owner@"), null)
+                .andExpect(jsonPath("$[0].assignableRoles.length()").value(0));
+        send(owner, get("/api/admin/users").param("q", "admin@"), null)
+                .andExpect(jsonPath("$[0].assignableRoles.length()").value(4));
+        // nobody gets to change their own row
+        send(owner, get("/api/admin/users").param("q", "owner@"), null)
+                .andExpect(jsonPath("$[0].assignableRoles.length()").value(0));
+    }
+
+    @Test
+    void nobodyChangesTheirOwnRoleAndTheShopKeepsAnOwner() throws Exception {
+        String owner = signUp("owner@example.com", Role.OWNER);
+        String admin = signUp("admin@example.com", Role.ADMIN);
+        Long ownerId = idOf("owner@example.com");
+
+        send(admin, patch("/api/admin/users/" + idOf("admin@example.com") + "/role"), Map.of("role", "OWNER"))
+                .andExpect(status().isForbidden());
+        send(owner, patch("/api/admin/users/" + ownerId + "/role"), Map.of("role", "USER"))
+                .andExpect(status().isForbidden());
+
+        // a second owner can demote the first, but not the last one standing
+        String second = signUp("second@example.com", Role.USER);
+        send(owner, patch("/api/admin/users/" + idOf("second@example.com") + "/role"), Map.of("role", "OWNER"))
+                .andExpect(status().isOk());
+        send(second, patch("/api/admin/users/" + ownerId + "/role"), Map.of("role", "ADMIN"))
+                .andExpect(status().isOk());
+        assertThat(userRepository.countByRole(Role.OWNER.authority())).isEqualTo(1);
+
+        // owners can also do everything admins do, and see the summary
+        send(second, get("/api/admin/products"), null).andExpect(status().isOk());
+        send(second, get("/api/owner/summary"), null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ordersByStatus.PENDING").value(0));
     }
 
     @Test
@@ -300,6 +368,10 @@ class StoreAdminIntegrationTest {
         userRepository.save(user);
 
         return objectMapper.readTree(verified.getResponse().getContentAsString()).get("token").asText();
+    }
+
+    private Long idOf(String email) {
+        return userRepository.findByEmail(email).orElseThrow().getId();
     }
 
     private long createProduct(String adminToken, String name, int stock) throws Exception {

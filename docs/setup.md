@@ -352,17 +352,25 @@ Products, prices and stock live in **the database only**. The website loads them
 | --- | --- |
 | `USER` | Shop, see and cancel their own pending orders |
 | `MEMBER` | Same as a user (room for member perks later) |
-| `ADMIN` | Add, edit and hide products, change stock, move orders through their statuses |
-| `OWNER` | Everything an admin can, plus give people roles and see the sales summary |
+| `ADMIN` | Add, edit and hide products, change stock, move orders through their statuses, and move customers between user and member |
+| `OWNER` | Everything an admin can, plus add and remove admins and owners, and see the sales summary |
 
-To become the owner, put your email in `OWNER_EMAIL` in `.env` and restart the backend. If you've already signed up, you're promoted at startup; otherwise you become owner when you sign up. From then on, give other people roles through the API (`PATCH /api/owner/users/{id}/role`). No SQL is needed.
+To become the owner, put your email in `OWNER_EMAIL` in `.env` and restart the backend. If you've already signed up, you're promoted at startup; otherwise you become owner when you sign up. From then on, give people roles in the dashboard's **People** tab (or `PATCH /api/admin/users/{id}/role`). No SQL is needed.
+
+Who can change whose role:
+
+- The owner can make anyone a user, member, admin or owner, so the owner adds and removes admins.
+- An admin can only move people between user and member. Admins can't touch other admins or the owner.
+- Nobody can change their own role, and the last owner can't be demoted.
+
+Every role change is logged with who made it (`GET /api/admin/role-changes`).
 
 Admins and owners get a **Manage store** link in the account menu, which opens the dashboard at `/admin`:
 
 - **Overview** (owner): money collected and still to collect, orders by status, and what's running low.
 - **Products & stock**: add a product with its starting stock, edit details and price, hide or show it, and add or remove stock with a reason. The clock icon shows the history.
 - **Orders**: new orders first. Buttons move each one to packing, shipped and delivered, or cancel it.
-- **People** (owner): change anyone's role.
+- **People**: search everyone and change roles. The owner sees every role; an admin only sees user and member, and other staff are shown as locked. Recent role changes are listed below.
 
 Behind the dashboard is the `/api/admin/**` API (the endpoint table is in the [README](../README.md#api)). Every stock change is logged with who made it and why (`GET /api/admin/products/{id}/stock`). Stock can never go below zero, and cancelling an order puts its items back.
 

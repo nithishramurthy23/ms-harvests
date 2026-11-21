@@ -166,10 +166,12 @@ All secrets (database password, JWT secret, Gmail app password) and per-environm
 | Role | Can do |
 |---|---|
 | USER, MEMBER | Shop, and cancel their own order while it's PENDING |
-| ADMIN | `/api/admin/**`: products, stock, all orders |
-| OWNER | Everything an admin can, plus `/api/owner/**`: roles and sales summary |
+| ADMIN | `/api/admin/**`: products, stock, all orders, and moving customers between USER and MEMBER |
+| OWNER | Everything an admin can, plus adding and removing admins and owners, and `/api/owner/**` (sales summary) |
 
 The rules are two lines in `SecurityConfig` (`/api/admin/**` needs ADMIN or OWNER, `/api/owner/**` needs OWNER), so one file shows who can reach what. The JWT filter loads the user from the database on every request, which means a role change takes effect on the next request without logging out. The first owner comes from `OWNER_EMAIL`, so setting up a shop needs no SQL.
+
+Who may change whose role is a second layer, because a URL rule can't express it. Admins and the owner both reach `PATCH /api/admin/users/{id}/role`, and `Role.assignableTo(current)` decides the rest: the owner can give any role to anyone, while an admin can only move someone who is currently USER or MEMBER to USER or MEMBER. `UserManagementService` also refuses changing your own role and demoting the last owner, and writes each change to `role_changes` (who, from, to, by whom, when). The people list sends `assignableRoles` for each person, so the dashboard only offers choices the server will accept. The rule lives in one place and the UI just reflects it.
 
 Order statuses are a small state machine in `OrderStatus.canMoveTo`: PENDING → PROCESSING → SHIPPED → DELIVERED, cancellable until shipped. Cancelling returns each item's quantity with the same conditional `UPDATE` admins use, and logs it in `stock_movements`.
 
@@ -180,7 +182,7 @@ Order statuses are a small state machine in `OrderStatus.canMoveTo`: PENDING →
 
 **Tradeoff.** MEMBER has no perks yet; it's there so member pricing can be added without another migration. Admin errors go through a `@RestControllerAdvice` (404/400/409 with a `message`), while the older customer endpoints still catch exceptions themselves. Moving those over is a follow-up.
 
-**Tested by.** `StoreAdminIntegrationTest` runs the whole cycle (add product → sell out → restock → PROCESSING → SHIPPED → DELIVERED) and checks that users and members get 403 on every admin endpoint, that stock can't go below zero, that hidden products can't be bought, that cancelling restocks, and that owners can't demote themselves. `OrderStatusTest` covers every status transition.
+**Tested by.** `StoreAdminIntegrationTest` runs the whole cycle (add product → sell out → restock → PROCESSING → SHIPPED → DELIVERED) and checks that users and members get 403 on every admin endpoint, that stock can't go below zero, that hidden products can't be bought, that cancelling restocks, that admins can move customers between user and member but get 403 when granting admin or owner or touching other staff, that nobody changes their own role, that the last owner stays, and that role changes are logged. `RoleTest` covers `assignableTo` for every pair. `OrderStatusTest` covers every status transition.
 
 ---
 

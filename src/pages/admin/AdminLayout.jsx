@@ -2,8 +2,8 @@ import { NavLink, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { canManageStore, isOwner } from "../../utils/roles";
 
-// Shell for the store dashboard: only admins and owners get in, and only
-// owners see the Overview and People tabs.
+// Shell for the store dashboard: only admins and owners get in. Both see
+// People (admins can only manage members there); only owners see Overview.
 export default function AdminLayout() {
   const { user, loading, isAuthenticated } = useAuth();
 
@@ -42,11 +42,9 @@ export default function AdminLayout() {
           <NavLink to="/admin/orders" className={tab}>
             Orders
           </NavLink>
-          {isOwner(user) && (
-            <NavLink to="/admin/people" className={tab}>
-              People
-            </NavLink>
-          )}
+          <NavLink to="/admin/people" className={tab}>
+            People
+          </NavLink>
         </nav>
       </header>
       <Outlet />

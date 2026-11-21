@@ -3,6 +3,7 @@ CREATE DATABASE IF NOT EXISTS farm_fresh;
 USE farm_fresh;
 
 -- Drop tables in correct order due to foreign key dependencies
+DROP TABLE IF EXISTS role_changes;
 DROP TABLE IF EXISTS stock_movements;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS cart_items;
@@ -145,6 +146,19 @@ CREATE TABLE stock_movements (
 );
 
 CREATE INDEX idx_stock_movements_product_id ON stock_movements(product_id);
+
+-- ROLE HISTORY (who gave whom which role)
+CREATE TABLE role_changes (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  from_role VARCHAR(20) NOT NULL,
+  to_role VARCHAR(20) NOT NULL,
+  changed_by VARCHAR(255) NOT NULL,
+  changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX idx_role_changes_changed_at ON role_changes(changed_at);
 
 -- INITIAL DATA
 
