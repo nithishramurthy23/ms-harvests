@@ -49,6 +49,7 @@ class OrderServiceTest {
     @Mock private MailService mailService;
     @Mock private ProductService productService;
     @Mock private PlatformTransactionManager transactionManager;
+    @Mock private com.nithishramurthy.farm.fresh.payment.PaymentService paymentService;
 
     @InjectMocks
     private OrderService orderService;

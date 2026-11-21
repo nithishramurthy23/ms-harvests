@@ -298,6 +298,9 @@ All settings come from `.env` (or real environment variables).
 | `JWT_SECRET`, `JWT_EXPIRATION` | backend login tokens | none, 24h (`86400000` milliseconds) |
 | `GOOGLE_CLIENT_ID` | backend, enables Sign in with Google ([setup](google-sign-in.md)) | empty (button hidden) |
 | `OWNER_EMAIL` | backend, this account becomes the shop owner ([roles](#10-changing-products-and-prices)) | empty |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | backend, turn on online payment ([payments guide](payments.md)) | empty (cash on delivery only) |
+| `RAZORPAY_WEBHOOK_SECRET` | backend, checks that payment webhooks really come from Razorpay | empty |
+| `PAY_WITHIN_MINUTES` | backend, unpaid online orders are cancelled after this long | `30` |
 | `CORS_ALLOWED_ORIGINS` | backend, comma-separated frontend URLs allowed to call it | `http://localhost:5173,http://localhost:3000` |
 | `PORT` | backend port | `8080` |
 | `VITE_API_URL` | frontend, where to find the backend | `http://localhost:8080/api` |

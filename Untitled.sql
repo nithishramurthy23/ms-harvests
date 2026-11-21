@@ -110,6 +110,13 @@ CREATE TABLE orders (
   shipping_phone VARCHAR(20),
   shipping_email VARCHAR(100),
   payment_method VARCHAR(50) NOT NULL,
+  -- PAY_ON_DELIVERY, AWAITING_PAYMENT, PAID, UNPAID, REFUND_PENDING, REFUNDED (docs/payments.md)
+  payment_status VARCHAR(20) DEFAULT 'PAY_ON_DELIVERY',
+  gateway_order_id VARCHAR(64),
+  gateway_payment_id VARCHAR(64),
+  -- random id the browser sends with each checkout, so a retry can't create a second order
+  idempotency_key VARCHAR(64),
+  UNIQUE KEY uk_orders_user_idempotency_key (user_id, idempotency_key),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

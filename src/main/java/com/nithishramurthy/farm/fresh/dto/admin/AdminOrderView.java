@@ -3,6 +3,7 @@ package com.nithishramurthy.farm.fresh.dto.admin;
 import com.nithishramurthy.farm.fresh.dto.OrderItemDTO;
 import com.nithishramurthy.farm.fresh.entity.Order;
 import com.nithishramurthy.farm.fresh.entity.OrderStatus;
+import com.nithishramurthy.farm.fresh.entity.PaymentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,6 +20,7 @@ public record AdminOrderView(
         List<OrderStatus> nextStatuses,
         BigDecimal totalAmount,
         String paymentMethod,
+        PaymentStatus paymentStatus,
         String shippingAddress,
         List<OrderItemDTO> items) {
 
@@ -29,9 +31,14 @@ public record AdminOrderView(
                 order.getUser().getEmail(),
                 order.getOrderDate(),
                 order.getStatus(),
-                Arrays.stream(OrderStatus.values()).filter(order.getStatus()::canMoveTo).toList(),
+                Arrays.stream(OrderStatus.values())
+                        .filter(order.getStatus()::canMoveTo)
+                        // an online order isn't packed until it's paid
+                        .filter(s -> !(s == OrderStatus.PROCESSING && order.getPaymentStatus() == PaymentStatus.AWAITING_PAYMENT))
+                        .toList(),
                 order.getTotalAmount(),
                 order.getPaymentMethod(),
+                order.getPaymentStatus(),
                 order.getShippingAddress(),
                 order.getOrderItems().stream().map(OrderItemDTO::new).toList());
     }

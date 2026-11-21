@@ -15,6 +15,7 @@ export const adminApi = {
   stockHistory: (id) => api.get(`/admin/products/${id}/stock`).then((r) => r.data),
   orders: (status) => api.get("/admin/orders", { params: status ? { status } : {} }).then((r) => r.data),
   setOrderStatus: (id, status) => api.patch(`/admin/orders/${id}/status`, { status }).then((r) => r.data),
+  retryRefund: (id) => api.post(`/admin/orders/${id}/refund`).then((r) => r.data),
   users: (q) => api.get("/admin/users", { params: q ? { q } : {} }).then((r) => r.data),
   setRole: (id, role) => api.patch(`/admin/users/${id}/role`, { role }).then((r) => r.data),
   roleChanges: () => api.get("/admin/role-changes").then((r) => r.data),

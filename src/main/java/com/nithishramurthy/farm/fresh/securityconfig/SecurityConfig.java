@@ -95,8 +95,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/", "/api/auth/**", "/api/contact", "/api/status", "/actuator/health/**",
-                    "/swagger-ui/**", "/v3/api-docs/**"
+                    "/swagger-ui/**", "/v3/api-docs/**",
+                    // Razorpay calls the webhook without a login; it's checked by its signature instead.
+                    "/api/payments/webhook"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/payments/config").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/offers/today").permitAll()
                 // Running the store: products, stock and orders. Users and members can't.
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OWNER")
