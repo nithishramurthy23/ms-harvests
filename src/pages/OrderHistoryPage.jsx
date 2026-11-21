@@ -14,7 +14,21 @@ export default function OrderHistoryPage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { dispatch, openCart } = useCart();
-  const { findItem } = useCatalog();
+  const { findItem, reload: reloadCatalog } = useCatalog();
+  const [cancelError, setCancelError] = useState(null);
+
+  // Customers can cancel while the order is still PENDING; the stock goes back.
+  const cancelOrder = async (order) => {
+    if (!window.confirm(`Cancel order #${order.id}?`)) return;
+    setCancelError(null);
+    try {
+      await api.post(`/orders/${order.id}/cancel`);
+      setOrders((list) => list.map((o) => (o.id === order.id ? { ...o, status: "CANCELLED" } : o)));
+      reloadCatalog();
+    } catch (err) {
+      setCancelError(err.response?.data?.message || "Couldn't cancel the order.");
+    }
+  };
 
   // Put the products from a past order back in the cart at today's prices.
   const orderAgain = (order) => {
@@ -145,6 +159,7 @@ export default function OrderHistoryPage() {
         </h1>
 
         <div className="space-y-6">
+          {cancelError && <p className="mb-4 text-sm text-clay-600">{cancelError}</p>}
           {orders.map((order) => (
             <div key={order.id} className="bg-white shadow-md rounded-lg p-6">
               <div className="flex justify-between items-center mb-4">
@@ -224,7 +239,12 @@ export default function OrderHistoryPage() {
                 </div>
               </div>
 
-              <div className="mt-6 text-right">
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                {order.status === "PENDING" && (
+                  <button onClick={() => cancelOrder(order)} className="btn-ghost px-5 py-2 text-clay-600">
+                    Cancel order
+                  </button>
+                )}
                 <button onClick={() => orderAgain(order)} className="btn-primary px-5 py-2">
                   Order again
                 </button>

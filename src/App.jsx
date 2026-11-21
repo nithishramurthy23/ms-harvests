@@ -15,6 +15,10 @@ import ProfilePage from "./pages/ProfilePage";
 import OrderHistoryPage from "./pages/OrderHistoryPage";
 import ProfileEditPage from "./pages/ProfileEditPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import AdminLayout, { AdminHome } from "./pages/admin/AdminLayout";
+import AdminProductsPage from "./pages/admin/AdminProductsPage";
+import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
+import { OwnerPeoplePage, OwnerSummaryPage } from "./pages/admin/OwnerPages";
 import ScrollToTop from "./components/ScrollToTop";
 
 import { CartProvider } from "./context/CartContext";
@@ -55,6 +59,13 @@ function App() {
                   <Route path="/profile/edit" element={<ProfileEditPage />} />
                   <Route path="/search" element={<SearchRedirect />} />
                   <Route path="/login" element={<Navigate to="/auth" replace />} />
+                  <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<AdminHome />} />
+                    <Route path="overview" element={<OwnerSummaryPage />} />
+                    <Route path="products" element={<AdminProductsPage />} />
+                    <Route path="orders" element={<AdminOrdersPage />} />
+                    <Route path="people" element={<OwnerPeoplePage />} />
+                  </Route>
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </main>

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import logo from "../assets/logo.png";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ShoppingBasket, Menu, X, User, LogOut, Package } from "lucide-react";
+import { ShoppingBasket, Menu, X, User, LogOut, Package, Store } from "lucide-react";
+import { canManageStore } from "../utils/roles";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import Cart from "./Cart";
@@ -115,6 +116,11 @@ export default function Navbar() {
                       <Link to="/orders" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-green-50">
                         <Package className="h-4 w-4" /> Orders
                       </Link>
+                      {canManageStore(user) && (
+                        <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-800 hover:bg-green-50">
+                          <Store className="h-4 w-4" /> Manage store
+                        </Link>
+                      )}
                       <button
                         onClick={handleLogout}
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-green-50"
@@ -174,6 +180,11 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
+            {canManageStore(user) && (
+              <NavLink to="/admin" className="block rounded-xl px-3 py-3 font-medium text-green-800">
+                Manage store
+              </NavLink>
+            )}
           </nav>
         )}
       </header>

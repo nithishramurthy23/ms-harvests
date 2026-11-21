@@ -189,7 +189,7 @@ Order statuses are a small state machine in `OrderStatus.canMoveTo`: PENDING →
 Roughly in order of value:
 
 1. **Database migrations with Flyway** instead of `spring.jpa.hibernate.ddl-auto=update`, so schema changes are versioned, reviewed, and repeatable.
-2. **Admin dashboard in React** on top of the admin API.
+2. **Move the customer endpoints onto the shared error handler** that the admin API uses.
 3. **Idempotency key on place-order**, so a client retry after a network error can't create a second order.
 4. **Transactional outbox for email** (see decision 5).
 5. **Rate limit OTP sending and login attempts.**
