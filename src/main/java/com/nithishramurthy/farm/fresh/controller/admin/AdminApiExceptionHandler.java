@@ -27,11 +27,17 @@ public class AdminApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(AdminApiExceptionHandler.class);
 
+    /** The product, order or user id doesn't exist. */
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> notFound(ResourceNotFoundException e) {
         return body(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
+    /**
+     * Bad input: our own checks throw IllegalArgumentException, and Spring throws the
+     * other two for unreadable JSON or a parameter of the wrong type (e.g. "abc" for an id).
+     * Spring's own messages are replaced, because they describe Java types, not the problem.
+     */
     @ExceptionHandler({IllegalArgumentException.class, HttpMessageNotReadableException.class,
             MethodArgumentTypeMismatchException.class})
     public ResponseEntity<Map<String, Object>> badRequest(Exception e) {
@@ -39,6 +45,10 @@ public class AdminApiExceptionHandler {
         return body(HttpStatus.BAD_REQUEST, message);
     }
 
+    /**
+     * A @Valid request body broke a rule (blank name, negative price, ...). The reply lists
+     * each bad field with its message, so the dashboard can show it next to the input.
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> invalid(MethodArgumentNotValidException e) {
         Map<String, String> fields = new LinkedHashMap<>();
@@ -49,16 +59,19 @@ public class AdminApiExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    /** Logged in with the right role for the URL, but not allowed to do this particular thing (e.g. an admin making someone an owner). */
     @ExceptionHandler(NotAllowedException.class)
     public ResponseEntity<Map<String, Object>> forbidden(NotAllowedException e) {
         return body(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
+    /** The request is fine but the current state forbids it, e.g. moving a SHIPPED order back to PENDING. 409 Conflict. */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> conflict(IllegalStateException e) {
         return body(HttpStatus.CONFLICT, e.getMessage());
     }
 
+    /** Anything else is a bug. Log the full stack trace for us, but never send it to the browser. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> unexpected(Exception e) {
         log.error("Admin API request failed", e);

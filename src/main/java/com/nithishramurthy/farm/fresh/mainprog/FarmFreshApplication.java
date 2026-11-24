@@ -21,6 +21,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     "com.nithishramurthy.farm.fresh.repository"
 })
 public class FarmFreshApplication {
+    /** Entry point. Spring Boot starts the embedded Tomcat server and creates every bean. */
     public static void main(String[] args) {
         SpringApplication.run(FarmFreshApplication.class, args);
     }

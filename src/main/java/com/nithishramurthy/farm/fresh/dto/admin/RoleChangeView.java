@@ -9,6 +9,7 @@ import java.time.Instant;
 public record RoleChangeView(Long id, String userName, String userEmail, Role fromRole, Role toRole,
                              String changedBy, Instant changedAt) {
 
+    /** One row of the role-change log, ready to show. */
     public static RoleChangeView from(RoleChange c) {
         return new RoleChangeView(c.getId(), c.getUser().getName(), c.getUser().getEmail(),
                 c.getFromRole(), c.getToRole(), c.getChangedBy(), c.getChangedAt());

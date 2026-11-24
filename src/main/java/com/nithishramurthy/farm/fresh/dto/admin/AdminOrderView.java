@@ -24,6 +24,7 @@ public record AdminOrderView(
         String shippingAddress,
         List<OrderItemDTO> items) {
 
+    /** Builds the view from an order, including the statuses it may move to next (for the board's buttons). */
     public static AdminOrderView from(Order order) {
         return new AdminOrderView(
                 order.getId(),

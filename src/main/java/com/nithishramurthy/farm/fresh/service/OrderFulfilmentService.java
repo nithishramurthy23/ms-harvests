@@ -100,13 +100,20 @@ public class OrderFulfilmentService {
         }
     }
 
+    /**
+     * The one place an order changes status. Every path (admin board, customer cancel,
+     * unpaid-order expiry) comes through here, so the rules can't be skipped.
+     */
     private Order moveTo(Order order, OrderStatus next, String changedBy) {
+        // Rule 1: only the moves drawn in OrderStatus.canMoveTo are allowed.
         if (!order.getStatus().canMoveTo(next)) {
             throw new IllegalStateException("An order that is " + order.getStatus() + " can't become " + next + ".");
         }
+        // Rule 2: don't start packing an online order before the money has arrived.
         if (next == OrderStatus.PROCESSING && order.getPaymentStatus() == PaymentStatus.AWAITING_PAYMENT) {
             throw new IllegalStateException("This order hasn't been paid yet.");
         }
+        // Cancelling: put the items back on the shelf, sort out the money, and tell the customer.
         if (next == OrderStatus.CANCELLED) {
             returnToStock(order, changedBy);
             // Conditional updates, so a payment landing at the same moment is never lost:
@@ -127,6 +134,8 @@ public class OrderFulfilmentService {
             orderRepository.movePayment(order.getId(), PaymentStatus.PAY_ON_DELIVERY, PaymentStatus.PAID, null);
             order = reload(order);
         }
+        // Save the new status. @DynamicUpdate on Order means only the status column is
+        // written, so a payment status a webhook set a moment ago isn't overwritten.
         order.setStatus(next);
         Order saved = orderRepository.save(order);
         if (next == OrderStatus.SHIPPED) {
@@ -149,6 +158,7 @@ public class OrderFulfilmentService {
         return find(order.getId());
     }
 
+    /** Adds each line's quantity back to its product and writes a stock-log row for it. */
     private void returnToStock(Order order, String changedBy) {
         for (OrderItem item : order.getOrderItems()) {
             Product product = item.getProduct();
@@ -162,6 +172,7 @@ public class OrderFulfilmentService {
         }
     }
 
+    /** Loads an order or throws ResourceNotFoundException (404). */
     private Order find(Long id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));

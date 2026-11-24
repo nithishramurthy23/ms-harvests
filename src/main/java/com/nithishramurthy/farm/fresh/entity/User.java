@@ -115,6 +115,7 @@ public class User {
         this.role = role;
     }
 
+    /** The role column as an enum. Unknown or old values are read as USER. */
     public Role roleEnum() {
         return Role.fromAuthority(role);
     }

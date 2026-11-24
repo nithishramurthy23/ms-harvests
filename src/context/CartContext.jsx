@@ -9,6 +9,7 @@ const CartContext = createContext(null);
 // Every cart change goes through this reducer, which also keeps the running total.
 const cartReducer = (state, action) => {
   switch (action.type) {
+    // Adding something already in the cart just raises its quantity.
     case "ADD_ITEM": {
       const quantity = action.payload.quantity || 1;
       const existingItem = state.items.find(
@@ -31,6 +32,7 @@ const cartReducer = (state, action) => {
         total: state.total + action.payload.price * quantity,
       };
     }
+    // Removing takes the whole line out and its value off the total.
     case "REMOVE_ITEM": {
       const itemToRemove = state.items.find(
         (item) => item.id === action.payload
@@ -43,6 +45,7 @@ const cartReducer = (state, action) => {
           (itemToRemove ? itemToRemove.price * itemToRemove.quantity : 0),
       };
     }
+    // Changing the quantity adjusts the total by the difference only.
     case "UPDATE_QUANTITY": {
       const item = state.items.find((item) => item.id === action.payload.id);
       if (!item) return state;
@@ -57,6 +60,7 @@ const cartReducer = (state, action) => {
         total: state.total + item.price * quantityDiff,
       };
     }
+    // After a successful order.
     case "CLEAR_CART":
       return { items: [], total: 0 };
     default:
@@ -64,6 +68,8 @@ const cartReducer = (state, action) => {
   }
 };
 
+// Runs once when the app starts, to bring back the cart from the last visit.
+// The prices in it are only for display; the server reprices everything at checkout.
 const loadCart = () => {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -78,6 +84,7 @@ export const CartProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cartReducer, undefined, loadCart);
   const [isOpen, setIsOpen] = useState(false);
 
+  // Save the cart after every change, so a refresh or a new tab keeps it.
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -106,6 +113,7 @@ export const CartProvider = ({ children }) => {
   );
 };
 
+// Any component calls useCart() to read or change the cart.
 export const useCart = () => {
   const context = useContext(CartContext);
   if (!context) {

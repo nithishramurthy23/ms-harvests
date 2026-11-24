@@ -59,6 +59,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         this.checkLimit = checkLimit;
     }
 
+    /** Only POSTs to the login and code endpoints are counted. Everything else skips this filter. */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return !enabled || !"POST".equals(request.getMethod()) || bucket(request.getRequestURI()) == null;
@@ -67,13 +68,15 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        // The counter key is bucket + client IP, e.g. "send:203.0.113.7".
         String bucket = bucket(request.getRequestURI());
         int limit = bucket.equals("send") ? sendLimit : checkLimit;
         long retryAfter = limiter.tryAcquire(bucket + ":" + request.getRemoteAddr(), limit, WINDOW);
         if (retryAfter == 0) {
-            chain.doFilter(request, response);
+            chain.doFilter(request, response); // under the limit: carry on as normal
             return;
         }
+        // Over the limit: answer here, before any controller runs, and say when to try again.
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setHeader("Retry-After", String.valueOf(retryAfter));
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -90,6 +93,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         };
     }
 
+    /** Every 10 minutes, forget counters whose window has ended, so memory use stays small. */
     @Scheduled(fixedDelay = 600_000)
     void cleanUp() {
         limiter.forgetOlderThan(WINDOW);

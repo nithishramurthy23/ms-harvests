@@ -48,6 +48,11 @@ public class UserManagementService {
                 .toList();
     }
 
+    /**
+     * Changes one person's role, checking the rules in order: not yourself, the person
+     * exists, the caller's role allows this move, and the last owner stays an owner.
+     * Then the change is saved and logged.
+     */
     @Transactional
     public UserView changeRole(Long userId, Role next, User actor) {
         if (userId.equals(actor.getId())) {

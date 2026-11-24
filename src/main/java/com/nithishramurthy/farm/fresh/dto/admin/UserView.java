@@ -12,6 +12,7 @@ import java.util.List;
  */
 public record UserView(Long id, String name, String email, Role role, boolean verified, List<Role> assignableRoles) {
 
+    /** One person, plus the roles the viewer may give them (from Role.assignableTo). */
     public static UserView from(User u, User viewer) {
         List<Role> assignable = u.getId().equals(viewer.getId())
                 ? List.of() // nobody changes their own role

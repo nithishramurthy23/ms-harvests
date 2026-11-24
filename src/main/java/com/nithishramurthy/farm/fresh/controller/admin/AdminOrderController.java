@@ -28,11 +28,17 @@ public class AdminOrderController {
         this.paymentService = paymentService;
     }
 
+    /** All orders, newest first. Pass ?status=PENDING to see only one column of the board. */
     @GetMapping
     public List<AdminOrderView> listOrders(@RequestParam(required = false) OrderStatus status) {
         return fulfilmentService.listOrders(status);
     }
 
+    /**
+     * Moves an order to its next status. The rules (which moves are allowed, restocking on
+     * cancel, refunds) live in OrderFulfilmentService. The admin's email is kept as "changed by"
+     * in the stock log.
+     */
     @PatchMapping("/{id}/status")
     public AdminOrderView changeStatus(@PathVariable Long id, @Valid @RequestBody StatusChangeRequest request,
                                        @AuthenticationPrincipal CustomUserDetails me) {

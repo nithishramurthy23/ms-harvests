@@ -69,6 +69,7 @@ public class OrderRequest {
     }
 
 
+    /** Where to deliver and how to reach the customer. Validated with the annotations on each field. */
     public static class ShippingInfo {
         @NotBlank(message = "Recipient name is required")
         private String name;
@@ -153,6 +154,10 @@ public class OrderRequest {
         }
     }
 
+    /**
+     * One basket line: product id and quantity. A price field is still accepted so old
+     * clients don't break, but the server never reads it (see OrderService).
+     */
     public static class OrderItemDto {
         @NotNull(message = "Product ID is required for each item")
         private Long productId;

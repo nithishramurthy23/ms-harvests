@@ -42,6 +42,7 @@ public class InventoryService {
                 .toList();
     }
 
+    /** Categories for the product form, in id order. */
     @Transactional(readOnly = true)
     public List<CategoryOption> listCategories() {
         return categoryRepository.findAll().stream()
@@ -50,6 +51,7 @@ public class InventoryService {
                 .toList();
     }
 
+    /** Saves a new product. Starting stock is logged as "Initial stock" so the history adds up from day one. */
     @Transactional
     public AdminProduct createProduct(ProductRequest request, String changedBy) {
         Product product = new Product();
@@ -102,6 +104,7 @@ public class InventoryService {
         return AdminProduct.from(after);
     }
 
+    /** Stock changes for one product, newest first. find(id) first, so an unknown id is a 404, not an empty list. */
     @Transactional(readOnly = true)
     public List<StockMovementView> stockHistory(Long id) {
         find(id);
@@ -115,6 +118,7 @@ public class InventoryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
     }
 
+    /** Copies the form fields onto the product. Shared by create and update. */
     private void applyDetails(Product product, ProductRequest request) {
         Category category = categoryRepository.findById(request.categoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown category: " + request.categoryId()));
