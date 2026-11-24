@@ -6,14 +6,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager; // Can be removed if using AuthenticationConfiguration
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration; // Import for AuthenticationConfiguration
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer; // Can be removed if not explicitly used
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService; // Keep this
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -34,8 +34,8 @@ import jakarta.servlet.http.HttpServletResponse;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final CustomUserDetailsService userDetailsService; // Use your CustomUserDetailsService
-    private final JwtTokenProvider jwtTokenProvider; // Inject JwtTokenProvider
+    private final CustomUserDetailsService userDetailsService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     private final List<String> allowedOrigins;
 
@@ -46,26 +46,35 @@ public class SecurityConfig {
         this.allowedOrigins = allowedOrigins;
     }
 
+    /** bcrypt for passwords: salted and slow on purpose, so stolen hashes are hard to crack. */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * How a password login is checked: load the user by email (CustomUserDetailsService),
+     * then compare the typed password with the stored hash (passwordEncoder).
+     */
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService); // Use your custom UserDetailsService
+        authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }
 
-    // Correct way to expose AuthenticationManager as a bean in Spring Boot 2.x+
+    /** Exposes Spring's AuthenticationManager so AuthService can run a password login with it. */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
 
-    // Define a custom AuthenticationEntryPoint for REST APIs
+    /**
+     * What a request without a valid login gets on a protected URL: 401 Unauthorized.
+     * Without this, Spring answers 403 here, and the frontend couldn't tell "please log in"
+     * apart from "you're not allowed".
+     */
     @Bean
     public AuthenticationEntryPoint authenticationEntryPoint() {
         return (request, response, authException) -> {
@@ -73,7 +82,7 @@ public class SecurityConfig {
         };
     }
 
-    // Define JwtAuthenticationFilter as a bean
+    /** The filter that reads the JWT on every request (see JwtAuthenticationFilter). */
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtTokenProvider, userDetailsService);
@@ -86,12 +95,15 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // Explicitly disable CSRF. This is the most direct way.
-            .csrf(AbstractHttpConfigurer::disable) // Modern way to disable CSRF
+            // CSRF protection is for cookie logins, where the browser sends the cookie by itself.
+            // We use a token the frontend adds to each request by hand, so CSRF doesn't apply.
+            .csrf(AbstractHttpConfigurer::disable)
 
-            // Enable CORS using the CorsConfigurationSource bean defined below
-            .cors(withDefaults()) // Uses the CorsConfigurationSource bean automatically
-            
+            // Let the React app on another origin (e.g. localhost:5173) call the API.
+            // The allowed origins are in corsConfigurationSource() below.
+            .cors(withDefaults())
+
+            // Rules are checked top to bottom; the first one that matches wins.
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/", "/api/auth/**", "/api/contact", "/api/status", "/actuator/health/**",
@@ -108,10 +120,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/owner/**").hasRole("OWNER")
                 .anyRequest().authenticated()
             )
+            // Never create an HTTP session. Each request proves who it is with its own JWT,
+            // which is what lets any backend copy serve any request.
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider())
+            // Run our JWT filter early, so the user is known before the URL rules are checked.
             .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-            // Set the custom AuthenticationEntryPoint for unauthenticated requests
             .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint()));
             
         return http.build();

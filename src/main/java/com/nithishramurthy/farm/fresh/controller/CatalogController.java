@@ -29,6 +29,7 @@ public class CatalogController {
         this.searchService = searchService;
     }
 
+    /** Every product a customer can see, with today's price (discounts applied) and stock left. */
     @GetMapping("/products")
     public List<CatalogProduct> listProducts() {
         return productService.listCatalog();
@@ -51,6 +52,7 @@ public class CatalogController {
                 ProductSearchService.Sort.from(sort), page, size));
     }
 
+    /** One visible product. ResponseEntity.of turns an empty Optional into a 404. */
     @GetMapping("/products/{id}")
     public ResponseEntity<CatalogProduct> getProduct(@PathVariable Long id) {
         return ResponseEntity.of(productService.findCatalogProduct(id));

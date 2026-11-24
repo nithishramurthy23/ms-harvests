@@ -33,6 +33,11 @@ public class OwnerService {
         this.productRepository = productRepository;
     }
 
+    /**
+     * Builds the owner's overview. Revenue only counts DELIVERED orders, because that money
+     * is certain. Orders still on their way (pending, processing, shipped) are added up
+     * separately as "open". Products with 5 or fewer left are listed so they can be restocked.
+     */
     @Transactional(readOnly = true)
     public SalesSummary summary() {
         Map<OrderStatus, Long> byStatus = new EnumMap<>(OrderStatus.class);

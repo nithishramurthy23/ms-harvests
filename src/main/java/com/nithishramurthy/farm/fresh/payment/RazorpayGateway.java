@@ -57,11 +57,16 @@ public class RazorpayGateway implements PaymentGateway {
         return !keyId.isBlank() && !keySecret.isBlank();
     }
 
+    /** The key id (rzp_test_... or rzp_live_...). Public by design; the secret never leaves the server. */
     @Override
     public String publicKey() {
         return keyId;
     }
 
+    /**
+     * POST /orders on Razorpay. Razorpay remembers the amount, so the customer can't change
+     * it in the payment window. Returns Razorpay's id, e.g. "order_N8x...".
+     */
     @Override
     public String createOrder(long amountPaise, String receipt) {
         JsonNode created = http.post()
@@ -73,6 +78,11 @@ public class RazorpayGateway implements PaymentGateway {
         return created.get("id").asText();
     }
 
+    /**
+     * After a successful payment Razorpay gives the browser a signature: HMAC-SHA256 of
+     * "order_id|payment_id" using our key secret. Only Razorpay and we know that secret,
+     * so a matching signature proves the ids weren't made up by the customer.
+     */
     @Override
     public boolean isValidPaymentSignature(String gatewayOrderId, String paymentId, String signature) {
         return matches(hmacSha256Hex(gatewayOrderId + "|" + paymentId, keySecret), signature);
@@ -87,6 +97,7 @@ public class RazorpayGateway implements PaymentGateway {
         return matches(hmacSha256Hex(rawBody, webhookSecret), signature);
     }
 
+    /** POST /payments/{id}/refund for the full amount. Throws if Razorpay says no; the caller handles that. */
     @Override
     public void refund(String paymentId, long amountPaise) {
         http.post()
@@ -97,6 +108,7 @@ public class RazorpayGateway implements PaymentGateway {
                 .toBodilessEntity();
     }
 
+    /** HMAC-SHA256 of the text with the secret, as lower-case hex, which is the format Razorpay sends. */
     static String hmacSha256Hex(String data, String secret) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");

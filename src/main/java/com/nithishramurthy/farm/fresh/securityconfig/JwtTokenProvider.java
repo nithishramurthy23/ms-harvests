@@ -63,6 +63,7 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    /** Same token, for logins that don't go through AuthenticationManager (Google sign-in). */
     public String generateToken(String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);

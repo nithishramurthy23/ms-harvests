@@ -17,6 +17,7 @@ public record AdminProduct(
         int stock,
         boolean active) {
 
+    /** Copies the fields the dashboard needs, so the JPA entity never leaves the server. */
     public static AdminProduct from(Product p) {
         return new AdminProduct(
                 p.getId(),

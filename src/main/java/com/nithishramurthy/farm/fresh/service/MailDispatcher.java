@@ -28,6 +28,7 @@ public class MailDispatcher {
         this.javaMailSender = javaMailSender;
     }
 
+    /** Plain-text email (OTP codes). @Async means the caller returns at once and a pool thread does the sending. */
     @Async
     public void send(SimpleMailMessage message) {
         withRetries(String.join(",", message.getTo() == null ? new String[0] : message.getTo()),
@@ -46,6 +47,7 @@ public class MailDispatcher {
         }));
     }
 
+    /** Tries up to 3 times, waiting 2 s and then 4 s, because a mail server often recovers from a hiccup. */
     private void withRetries(String to, Runnable sending) {
         long backoff = INITIAL_BACKOFF_MS;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

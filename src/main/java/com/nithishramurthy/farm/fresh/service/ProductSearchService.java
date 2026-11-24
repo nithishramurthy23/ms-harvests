@@ -45,6 +45,7 @@ public class ProductSearchService {
         this.orderItemRepository = orderItemRepository;
     }
 
+    /** The six ways the shop can sort results. */
     public enum Sort {
         RELEVANCE, POPULAR, PRICE_ASC, PRICE_DESC, DISCOUNT, NAME;
 
@@ -61,10 +62,12 @@ public class ProductSearchService {
         }
     }
 
+    /** Everything the search box and filters can ask for. Null or blank means "no filter". */
     public record Query(String text, String category, BigDecimal minPrice, BigDecimal maxPrice,
                         boolean inStockOnly, Sort sort, int page, int size) {
     }
 
+    /** Runs one search: match the words, filter, count per aisle, sort, then cut out one page. */
     @Transactional(readOnly = true)
     public ProductSearchResult search(Query query) {
         List<String> words = words(query.text());

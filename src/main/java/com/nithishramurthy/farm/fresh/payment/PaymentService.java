@@ -57,10 +57,12 @@ public class PaymentService {
         this.payWithin = Duration.ofMinutes(payWithinMinutes);
     }
 
+    /** False when no Razorpay keys are set. Then checkout only offers cash on delivery. */
     public boolean isOnlineEnabled() {
         return gateway.isEnabled();
     }
 
+    /** Razorpay's public key id. The browser needs it to open the payment window, and it's safe to share. */
     public String publicKey() {
         return gateway.publicKey();
     }
@@ -118,9 +120,12 @@ public class PaymentService {
      */
     @Transactional
     public boolean handleWebhook(String rawBody, String signature) {
+        // 1. Anyone on the internet can call this URL, so first prove the call came from
+        //    Razorpay: the signature is an HMAC of the exact body with our webhook secret.
         if (!gateway.isValidWebhookSignature(rawBody, signature)) {
             return false;
         }
+        // 2. Read the event type. We only care about "the money was taken".
         JsonNode event;
         try {
             event = objectMapper.readTree(rawBody);
@@ -131,11 +136,14 @@ public class PaymentService {
         if (!type.equals("payment.captured") && !type.equals("order.paid")) {
             return true; // other events (payment.failed, ...) need nothing: the customer can try again
         }
+        // 3. Pull out which Razorpay order was paid, the payment id and the amount.
         JsonNode payment = event.path("payload").path("payment").path("entity");
         String gatewayOrderId = payment.path("order_id").asText();
         String paymentId = payment.path("id").asText();
         long amount = payment.path("amount").asLong();
 
+        // 4. Find our order, check the amount matches our total, and mark it paid. If the
+        //    browser already reported this payment, markPaid changes nothing.
         orderRepository.findByGatewayOrderId(gatewayOrderId).ifPresentOrElse(order -> {
             if (amount != toPaise(order.getTotalAmount())) {
                 log.error("Payment {} for order {} was {} paise, expected {}", paymentId, order.getId(), amount,
@@ -218,6 +226,7 @@ public class PaymentService {
         }
     }
 
+    /** Loads an order only if it belongs to this customer; anyone else gets "not found". */
     private Order ownOrder(Long orderId, Long userId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
@@ -227,6 +236,10 @@ public class PaymentService {
         return order;
     }
 
+    /**
+     * Razorpay wants whole paise (₹149.50 is 14950). longValueExact throws instead of
+     * quietly dropping anything, so a wrong amount can never be sent.
+     */
     static long toPaise(BigDecimal rupees) {
         return rupees.setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValueExact();
     }

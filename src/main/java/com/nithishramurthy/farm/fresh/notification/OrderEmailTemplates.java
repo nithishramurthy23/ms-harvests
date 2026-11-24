@@ -30,6 +30,7 @@ public class OrderEmailTemplates {
         this.shopUrl = shopUrl.endsWith("/") ? shopUrl.substring(0, shopUrl.length() - 1) : shopUrl;
     }
 
+    /** Builds the subject, text and HTML for one email type, from the order as it is now in the database. */
     public OrderEmail build(Order order, OrderEmailType type) {
         String name = firstName(order.getUser().getName());
         String total = rupees(order.getTotalAmount());

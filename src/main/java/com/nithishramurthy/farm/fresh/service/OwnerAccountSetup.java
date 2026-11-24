@@ -34,6 +34,10 @@ public class OwnerAccountSetup implements ApplicationRunner {
         return !ownerEmail.isEmpty() && ownerEmail.equalsIgnoreCase(email) ? Role.OWNER : Role.USER;
     }
 
+    /**
+     * Runs once when the app starts. If the OWNER_EMAIL account already exists but isn't
+     * an owner yet, it is promoted. If it doesn't exist, registerUser gives it OWNER on sign-up.
+     */
     @Override
     @Transactional
     public void run(ApplicationArguments args) {

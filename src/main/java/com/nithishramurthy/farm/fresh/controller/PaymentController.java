@@ -37,6 +37,7 @@ public class PaymentController {
         return Map.of("onlineEnabled", enabled, "keyId", enabled ? paymentService.publicKey() : "");
     }
 
+    /** What Razorpay's payment window hands the browser after a successful payment. */
     public record VerifyRequest(@NotNull Long orderId, @NotBlank String razorpayOrderId,
                                 @NotBlank String razorpayPaymentId, @NotBlank String razorpaySignature) {
     }

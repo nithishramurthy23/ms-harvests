@@ -18,6 +18,7 @@ public class OwnerController {
         this.ownerService = ownerService;
     }
 
+    /** Orders per status, money from delivered and still-open orders, customer count, and products running low. */
     @GetMapping("/summary")
     public SalesSummary summary() {
         return ownerService.summary();

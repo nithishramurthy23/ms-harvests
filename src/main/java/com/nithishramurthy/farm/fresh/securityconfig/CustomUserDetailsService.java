@@ -1,4 +1,4 @@
-package com.nithishramurthy.farm.fresh.securityconfig; // Or adjust package as needed
+package com.nithishramurthy.farm.fresh.securityconfig;
 
 import com.nithishramurthy.farm.fresh.details.CustomUserDetails;
 import com.nithishramurthy.farm.fresh.entity.User;
@@ -20,14 +20,15 @@ public class CustomUserDetailsService implements UserDetailsService {
         this.userRepository = userRepository;
     }
 
+    /** Called by password login and by the JWT filter on every request. */
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        // Load user from your database based on email (which acts as username)
+        // The email is the username in this app.
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        // Return your custom UserDetails implementation
+        // Wrap our User so Spring Security can read its password hash, role and enabled flag.
         return new CustomUserDetails(user);
     }
 }

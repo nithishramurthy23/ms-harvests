@@ -66,6 +66,8 @@ public class AuthService {
             throw new IllegalArgumentException("Email is already registered.");
         }
 
+        // Never store the password itself, only its bcrypt hash. bcrypt adds a random salt
+        // and is slow on purpose, so a leaked table is very expensive to crack.
         User newUser = new User();
         newUser.setEmail(request.getEmail());
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -73,6 +75,7 @@ public class AuthService {
         newUser.setPhone(request.getPhone());
         newUser.setAddress(request.getAddress());
         newUser.setRole(ownerAccountSetup.roleForNewAccount(request.getEmail()).authority());
+        // Disabled until they type the code we email them. That proves they own the address.
         newUser.setEnabled(false);
 
         User savedUser = userRepository.save(newUser);
@@ -105,20 +108,20 @@ public class AuthService {
         String jwt;
 
         if (request.getOtp() != null && !request.getOtp().isEmpty()) {
-            // OTP-based login
+            // Login with an emailed code. The code already proved who they are, so we
+            // skip the password check and build the "logged in" object ourselves.
             if (!otpService.validateOtp(request.getEmail(), request.getOtp())) {
                 throw new IllegalArgumentException("Invalid or expired OTP.");
             }
-            // Manually create an authenticated token for OTP login
             UserDetails userDetails = customUserDetailsService.loadUserByUsername(request.getEmail());
             authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Generate JWT token
             jwt = jwtTokenProvider.generateToken(authentication);
 
         } else if (request.getPassword() != null && !request.getPassword().isEmpty()) {
-            // Password-based login
+            // Login with a password. AuthenticationManager loads the user and compares the
+            // typed password with the stored bcrypt hash (DaoAuthenticationProvider in SecurityConfig).
             try {
                 authentication = authenticationManager.authenticate(
                         new UsernamePasswordAuthenticationToken(
@@ -180,7 +183,6 @@ public class AuthService {
         return userRepository.save(user);
     }
     
-    // New method to verify OTP and log in a new user in a single step
     /**
      * Checks the activation OTP, enables the account and logs the user in.
      * Not one transaction on purpose: a failed OTP check must stay counted
@@ -207,6 +209,7 @@ public class AuthService {
     }
 
 
+    /** Sends a new activation code, e.g. when the first one expired. The send limits in OtpService still apply. */
     @Transactional
     public void resendOtp(String email) {
         User user = userRepository.findByEmail(email)
@@ -214,6 +217,10 @@ public class AuthService {
         otpService.generateAndSendOtp(user.getEmail(), "Account Activation OTP", "account activation");
     }
 
+    /**
+     * Emails a password-reset code. The controller always answers with the same message,
+     * whether or not the account exists, so this can't be used to find out who shops here.
+     */
     @Transactional
     public void forgotPassword(String email) {
         User user = userRepository.findByEmail(email)
@@ -221,9 +228,12 @@ public class AuthService {
         otpService.generateAndSendOtp(email, "Password Reset OTP", "password reset");
     }
 
-    /** Checks the reset OTP and the new password's strength, then stores the new hash. */
-    // Not one transaction on purpose: a failed OTP check must stay counted when we throw.
-    // The password rule is checked first, so a weak password doesn't use up the OTP.
+    /**
+     * Checks the reset OTP and the new password's strength, then stores the new hash.
+     *
+     * Not one transaction on purpose: a failed OTP check must stay counted when we throw.
+     * The password rule is checked first, so a weak password doesn't use up the OTP.
+     */
     public void resetPassword(String email, String otp, String newPassword) {
         if (!isStrongPassword(newPassword)) {
             throw new IllegalArgumentException("Password must contain at least 8 characters, including one uppercase, one lowercase, one digit, and one special character.");
@@ -248,6 +258,7 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found for the provided token."));
     }
 
+    /** At least 8 characters with a lower-case letter, an upper-case letter, a digit and a symbol. */
     private boolean isStrongPassword(String password) {
         String regex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*?&]{8,}$";
         return password.matches(regex);

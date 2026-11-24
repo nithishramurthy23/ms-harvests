@@ -90,12 +90,15 @@ public class OrderService {
      *                       gets the same order back instead of creating a second one.
      */
     public OrderResponse placeOrder(OrderRequest orderRequest, String idempotencyKey) {
+        // Step 1: who is ordering. The JWT filter already put the logged-in user in the
+        // SecurityContext, so we take the email from there, never from the request body.
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userEmail = authentication.getName();
 
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user not found."));
 
+        // Step 2: is this a retry of a checkout that already went through?
         String key = normaliseKey(idempotencyKey);
         if (key != null) {
             // Checked before the OTP, because the first request already used the code up.
@@ -105,6 +108,7 @@ public class OrderService {
             }
         }
 
+        // Step 3: only two payment methods exist. Online needs Razorpay keys to be configured.
         boolean online = "online".equalsIgnoreCase(orderRequest.getPaymentMethod());
         if (online && !paymentService.isOnlineEnabled()) {
             throw new IllegalArgumentException("Online payment isn't set up for this shop. Please pick cash on delivery.");
@@ -113,6 +117,7 @@ public class OrderService {
             throw new IllegalArgumentException("Pick cash on delivery or online payment.");
         }
 
+        // Step 4: the emailed code. A stolen token alone can't place orders.
         if (orderRequest.getOrderConfirmationOtp() == null || orderRequest.getOrderConfirmationOtp().isEmpty()) {
             throw new IllegalArgumentException("Order confirmation OTP is required.");
         }
@@ -123,6 +128,7 @@ public class OrderService {
             throw new IllegalArgumentException("Invalid or expired OTP for order confirmation.");
         }
 
+        // Step 5: take the stock and save the order, all in one transaction (createOrder below).
         Order savedOrder;
         try {
             savedOrder = transactionTemplate.execute(status -> createOrder(user, orderRequest, key, online));
@@ -136,6 +142,8 @@ public class OrderService {
                     .orElseThrow(() -> e);
         }
 
+        // Step 6: the order is committed. Online orders now get a Razorpay payment;
+        // cash-on-delivery orders get their confirmation email.
         if (online) {
             // Stock is reserved; now ask Razorpay for a payment. The confirmation
             // email goes out once the money arrives (PaymentService.markPaid).
@@ -149,6 +157,11 @@ public class OrderService {
         return response(savedOrder, "Order placed successfully!");
     }
 
+    /**
+     * Reply for a retried checkout: the order that was already created. If it's an online
+     * order still waiting for money, the payment details are included again so the
+     * customer can open the payment window and finish.
+     */
     private OrderResponse alreadyPlaced(Order order) {
         OrderResponse response = response(order, "This order was already placed.");
         if (order.getPaymentStatus() == PaymentStatus.AWAITING_PAYMENT && order.getGatewayOrderId() != null) {
@@ -157,6 +170,7 @@ public class OrderService {
         return response;
     }
 
+    /** The JSON the browser gets back after placing an order. */
     private static OrderResponse response(Order order, String message) {
         OrderResponse response = new OrderResponse(order.getId(), order.getStatus().name(), order.getTotalAmount(),
                 order.getOrderDate(), message);
@@ -164,6 +178,7 @@ public class OrderService {
         return response;
     }
 
+    /** Blank means "no key". Keys longer than the 64-character column are refused. */
     private static String normaliseKey(String key) {
         if (key == null || key.isBlank()) {
             return null;
@@ -189,6 +204,8 @@ public class OrderService {
         order.setPaymentMethod(online ? "online" : "cod");
         order.setPaymentStatus(online ? PaymentStatus.AWAITING_PAYMENT : PaymentStatus.PAY_ON_DELIVERY);
 
+        // The address is copied onto the order as text, so editing your profile later
+        // doesn't change where an old order was sent.
         String fullShippingAddress = String.format("%s, %s, %s (Phone: %s, Email: %s)",
                 orderRequest.getShippingInfo().getAddress(),
                 orderRequest.getShippingInfo().getCity(),
@@ -199,6 +216,8 @@ public class OrderService {
 
         BigDecimal calculatedTotalAmount = BigDecimal.ZERO;
 
+        // One pass per line in the basket. Any problem throws, and the throw rolls back
+        // everything done so far in this transaction, including stock taken for earlier lines.
         for (OrderRequest.OrderItemDto itemDto : orderRequest.getItems()) {
             Product product = productRepository.findById(itemDto.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemDto.getProductId()));
@@ -220,6 +239,8 @@ public class OrderService {
             // Price comes from the database, never from the client request.
             BigDecimal unitPrice = productService.getCurrentPrice(product);
 
+            // The line keeps its own copy of name, price, weight and picture, so the order
+            // history still shows what was bought even if the product changes later.
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
             orderItem.setProduct(product);
@@ -244,11 +265,13 @@ public class OrderService {
         return savedOrder;
     }
 
+    /** All orders of one customer, for the order history page. */
     @Transactional(readOnly = true)
     public List<Order> getOrdersByUserId(Long userId) {
         return orderRepository.findByUserId(userId);
     }
 
+    /** One order by id. The controller checks that it belongs to the caller before returning it. */
     @Transactional(readOnly = true)
     public OrderDTO getOrderById(Long orderId) {
         Order order = orderRepository.findById(orderId)

@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class FixedWindowRateLimiter {
 
+    /** When this key's current window started, and how many requests it has had in it. Immutable, so compute() can swap it safely. */
     private record Window(Instant start, int count) {
     }
 

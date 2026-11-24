@@ -153,6 +153,8 @@ export default function CheckoutPage() {
     };
 
     try {
+      // The Idempotency-Key header is the same on every try of this checkout. If the
+      // first try reached the server but the reply was lost, a retry gets that order back.
       const response = await api.post(
         "/orders/place-order",
         orderData,
@@ -164,6 +166,8 @@ export default function CheckoutPage() {
         }
       );
       const placed = response.data;
+      // An online order comes back with payment details: open Razorpay's window now.
+      // payForOrder also sends the result to our server, which checks the signature.
       if (placed.payment) {
         try {
           await payForOrder(placed.orderId, placed.payment, formData);

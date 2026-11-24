@@ -17,10 +17,12 @@ public enum Role {
     ADMIN,
     OWNER;
 
+    /** The name Spring Security expects: hasRole("ADMIN") looks for the authority "ROLE_ADMIN". */
     public String authority() {
         return "ROLE_" + name();
     }
 
+    /** True for the two roles that can open the store dashboard. */
     public boolean canManageStore() {
         return this == ADMIN || this == OWNER;
     }

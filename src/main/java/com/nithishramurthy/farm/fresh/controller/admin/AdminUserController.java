@@ -26,18 +26,24 @@ public class AdminUserController {
         this.userManagementService = userManagementService;
     }
 
+    /**
+     * Everyone, optionally filtered by name or email (?q=). Each person comes with the roles
+     * the caller may give them, so the dashboard only shows choices the server will accept.
+     */
     @GetMapping("/users")
     public List<UserView> listUsers(@RequestParam(required = false) String q,
                                     @AuthenticationPrincipal CustomUserDetails me) {
         return userManagementService.listUsers(me.getUser(), q);
     }
 
+    /** Changes someone's role. UserManagementService refuses moves the caller isn't allowed to make (403). */
     @PatchMapping("/users/{id}/role")
     public UserView changeRole(@PathVariable Long id, @Valid @RequestBody RoleChangeRequest request,
                                @AuthenticationPrincipal CustomUserDetails me) {
         return userManagementService.changeRole(id, request.role(), me.getUser());
     }
 
+    /** The last 50 role changes, newest first: who was changed, from what, to what, and by whom. */
     @GetMapping("/role-changes")
     public List<RoleChangeView> recentRoleChanges() {
         return userManagementService.recentChanges();
